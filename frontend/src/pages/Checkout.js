@@ -155,24 +155,24 @@ export default function Checkout() {
               {cart.items.map((it) => (
                 <div key={it.service_id} className="flex justify-between">
                   <span>{it.service.name} × {it.quantity}</span>
-                  <span>${(it.service.price * it.quantity).toFixed(2)}</span>
+                  <span>₹{(it.service.price * it.quantity).toLocaleString("en-IN")}</span>
                 </div>
               ))}
             </div>
             <div className="border-t border-[#EAE3D6] my-4"></div>
             <div className="text-sm space-y-2">
-              <div className="flex justify-between"><span>Subtotal</span><span>${cart.total.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>Subtotal</span><span>₹{cart.total.toLocaleString("en-IN")}</span></div>
               {activeMember && (
                 <div className="flex justify-between text-[#8F9779]">
                   <span>{membership.plan_id} member ({discountPct}%)</span>
-                  <span>-${discount.toFixed(2)}</span>
+                  <span>-₹{discount.toLocaleString("en-IN", {maximumFractionDigits: 0})}</span>
                 </div>
               )}
             </div>
             <div className="border-t border-[#EAE3D6] my-4"></div>
             <div className="flex justify-between font-serif-luxe text-2xl">
               <span>Total</span>
-              <span data-testid="checkout-total">${grand.toFixed(2)}</span>
+              <span data-testid="checkout-total">₹{grand.toLocaleString("en-IN", {maximumFractionDigits: 0})}</span>
             </div>
             <Button
               onClick={pay}

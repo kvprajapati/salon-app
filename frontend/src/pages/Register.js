@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Sparkle, Gift, Percent, Crown, Eye, EyeSlash } from "@phosphor-icons/react";
+import { useTranslation } from "react-i18next";
 
 export default function Register() {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ name: "", email: "", password: "", phone: "" });
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -37,7 +39,7 @@ export default function Register() {
           <div className="font-serif-luxe text-4xl lg:text-5xl mt-4 leading-tight">Book your first ritual today.</div>
           <div className="mt-8 space-y-3">
             {[
-              { icon: <Gift size={18} weight="duotone" />, t: "$20 credit on sign-up" },
+              { icon: <Gift size={18} weight="duotone" />, t: "₹500 credit on sign-up" },
               { icon: <Percent size={18} weight="duotone" />, t: "Up to 25% off with membership" },
               { icon: <Crown size={18} weight="duotone" />, t: "Priority slots, always" },
             ].map((p, i) => (
@@ -57,9 +59,9 @@ export default function Register() {
             <Sparkle size={26} weight="duotone" className="text-[#E07A5F]" />
             <span className="font-serif-luxe text-2xl">DH Salon</span>
           </Link>
-          <div className="eyebrow mb-3">Join the circle</div>
-          <h1 className="font-serif-luxe text-5xl">Create account.</h1>
-          <p className="text-sm text-[#4A4A4A] mt-3">A single account for every DH ritual.</p>
+          <div className="eyebrow mb-3">{t("auth.signupEyebrow")}</div>
+          <h1 className="font-serif-luxe text-5xl">{t("auth.signupTitle")}</h1>
+          <p className="text-sm text-[#4A4A4A] mt-3">{t("auth.signupSub")}</p>
 
           <div className="mt-8 space-y-4">
             <div>
@@ -90,8 +92,8 @@ export default function Register() {
             </div>
           </div>
 
-          <Button type="submit" disabled={loading} className="btn-primary-ink rounded-full h-12 w-full mt-8" data-testid="reg-submit-btn">
-            {loading ? "Creating..." : "Create my account"}
+          <Button type="submit" disabled={loading} className="btn-primary-ink rounded-full h-12 w-full mt-8 font-semibold" data-testid="reg-submit-btn">
+            {loading ? "..." : t("common.signup")}
           </Button>
 
           <p className="text-xs text-[#4A4A4A] mt-4 text-center">
@@ -99,7 +101,7 @@ export default function Register() {
           </p>
 
           <p className="text-sm text-[#4A4A4A] mt-8 text-center">
-            Already have an account? <Link to="/login" className="text-[#E07A5F] underline underline-offset-4">Sign in</Link>
+            {t("auth.haveAccount")} <Link to="/login" className="text-[#E07A5F] underline underline-offset-4 font-semibold">{t("common.signIn")}</Link>
           </p>
         </form>
       </div>

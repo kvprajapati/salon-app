@@ -138,12 +138,12 @@ export default function Account() {
                       </div>
                       {b.status === "cancelled" && (
                         <div className="text-xs text-[#4A4A4A] mt-2">
-                          Refund: {b.refund_pct}% (${b.refund_amount?.toFixed(2)}) · {b.refund_status}
+                          Refund: {b.refund_pct}% (₹{Number(b.refund_amount || 0).toLocaleString("en-IN")}) · {b.refund_status}
                         </div>
                       )}
                     </div>
                     <div className="text-right">
-                      <div className="font-serif-luxe text-2xl">${b.total.toFixed(2)}</div>
+                      <div className="font-serif-luxe text-2xl">₹{b.total.toLocaleString("en-IN", {maximumFractionDigits: 0})}</div>
                       <div className="text-xs text-[#4A4A4A] mt-1">{b.payment_status}</div>
                     </div>
                   </div>

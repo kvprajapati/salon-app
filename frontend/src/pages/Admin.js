@@ -72,7 +72,7 @@ export default function Admin() {
     { label: "Members", value: stats.users, icon: <Users size={22} weight="duotone" /> },
     { label: "Services", value: stats.services, icon: <Storefront size={22} weight="duotone" /> },
     { label: "Bookings", value: stats.bookings, icon: <CalendarCheck size={22} weight="duotone" /> },
-    { label: "Revenue", value: `$${stats.revenue}`, icon: <Wallet size={22} weight="duotone" /> },
+    { label: "Revenue", value: `₹${Number(stats.revenue || 0).toLocaleString("en-IN")}`, icon: <Wallet size={22} weight="duotone" /> },
     { label: "Pros pending", value: pendingPros, icon: <IdentificationCard size={22} weight="duotone" /> },
   ];
 
@@ -119,7 +119,7 @@ export default function Admin() {
                     <td className="p-3">{b.user_name}<div className="text-xs text-[#4A4A4A]">{b.user_email}</div></td>
                     <td className="p-3">{b.items.map((i) => i.name).join(", ")}</td>
                     <td className="p-3">{b.slot_date} · {b.slot_time}</td>
-                    <td className="p-3">${b.total.toFixed(2)}</td>
+                    <td className="p-3">₹{Number(b.total || 0).toLocaleString("en-IN")}</td>
                     <td className="p-3"><Badge variant="outline">{b.payment_status}</Badge></td>
                     <td className="p-3">
                       <Select value={b.status} onValueChange={(v) => setBookingStatus(b.id, v)}>
@@ -151,7 +151,7 @@ export default function Admin() {
                   <tr key={o.session_id} className="border-t border-[#EAE3D6]" data-testid={`order-${o.session_id.slice(-8)}`}>
                     <td className="p-3 font-mono text-xs">{o.session_id.slice(0, 22)}…</td>
                     <td className="p-3">{o.kind} {o.plan_id ? `· ${o.plan_id}` : ""}</td>
-                    <td className="p-3">${o.amount?.toFixed(2)}</td>
+                    <td className="p-3">₹{Number(o.amount || 0).toLocaleString("en-IN")}</td>
                     <td className="p-3">
                       <Badge className={o.payment_status === "paid" ? "bg-[#8F9779] text-white" : "bg-[#F4EFE6] text-[#1A1A1A]"}>
                         {o.payment_status}
@@ -176,7 +176,7 @@ export default function Admin() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="svc-name-input" /></div>
                   <div><Label>Category</Label><Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /></div>
-                  <div><Label>Price ($)</Label><Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} data-testid="svc-price-input" /></div>
+                  <div><Label>Price (₹)</Label><Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} data-testid="svc-price-input" /></div>
                   <div><Label>Duration (min)</Label><Input type="number" value={form.duration_min} onChange={(e) => setForm({ ...form, duration_min: e.target.value })} /></div>
                   <div className="col-span-2"><Label>Image URL</Label><Input value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} /></div>
                   <div className="col-span-2"><Label>Description</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
@@ -192,7 +192,7 @@ export default function Admin() {
                 <div className="flex-1">
                   <div className="text-xs uppercase tracking-widest text-[#E07A5F]">{s.category}</div>
                   <div className="font-serif-luxe text-lg">{s.name}</div>
-                  <div className="text-sm text-[#4A4A4A]">${s.price} · {s.duration_min} min</div>
+                  <div className="text-sm text-[#4A4A4A]">₹{Number(s.price).toLocaleString("en-IN")} · {s.duration_min} min</div>
                   <button onClick={() => delService(s.id)} className="text-xs text-[#E07A5F] mt-2 inline-flex items-center gap-1" data-testid={`admin-del-svc-${s.id}`}><Trash size={12} /> Delete</button>
                 </div>
               </div>

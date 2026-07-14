@@ -3,10 +3,22 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { Star, ArrowRight, Leaf, Clock, ShieldCheck, HandHeart } from "@phosphor-icons/react";
+import { useTranslation } from "react-i18next";
+import { formatINR } from "@/i18n";
+import TestimonialShowcase from "@/components/TestimonialShowcase";
 
 export default function Home() {
   const [services, setServices] = useState([]);
-  useEffect(() => { api.get("/services").then(({ data }) => setServices(data.slice(0, 6))); }, []);
+  const [reviews, setReviews] = useState([]);
+  const { t, i18n } = useTranslation();
+  const hi = i18n.language?.startsWith("hi");
+  const nm = (s) => (hi && s.name_hi ? s.name_hi : s.name);
+  const cat = (s) => (hi && s.category_hi ? s.category_hi : s.category);
+
+  useEffect(() => {
+    api.get("/services").then(({ data }) => setServices(data.slice(0, 6)));
+    api.get("/testimonials").then(({ data }) => setReviews(data)).catch(() => {});
+  }, []);
 
   return (
     <div>
@@ -16,27 +28,27 @@ export default function Home() {
           <div className="lg:col-span-6 relative z-10">
             <div className="eyebrow mb-6" data-testid="hero-eyebrow">Salon · Spa · Wellness · At Home</div>
             <h1 className="font-serif-luxe text-5xl sm:text-6xl lg:text-7xl leading-[1.05] text-[#1A1A1A]">
-              Quiet luxury.<br />
-              <span className="italic text-[#E07A5F]">Delivered</span> to your door.
+              {t("hero.title1")}<br />
+              <span className="italic text-[#E07A5F]">{t("hero.title2")}</span> {t("hero.title3")}
             </h1>
             <p className="mt-6 text-lg text-[#4A4A4A] max-w-lg leading-relaxed">
-              A curated at-home salon experience — trained specialists, sanitised tools, and rituals inspired by the world's most exquisite spas.
+              {t("hero.subtitle")}
             </p>
-            <div className="mt-10 flex gap-4">
+            <div className="mt-10 flex gap-4 flex-wrap">
               <Link to="/services">
-                <Button className="btn-primary-ink rounded-full h-12 px-8" data-testid="hero-book-btn">
-                  Book a service <ArrowRight size={18} className="ml-2" />
+                <Button className="btn-primary-ink rounded-full h-12 px-8 font-semibold" data-testid="hero-book-btn">
+                  {t("hero.ctaBook")} <ArrowRight size={18} className="ml-2" />
                 </Button>
               </Link>
               <Link to="/memberships">
-                <Button variant="outline" className="rounded-full h-12 px-8 border-[#1A1A1A]" data-testid="hero-membership-btn">
-                  See Memberships
+                <Button variant="outline" className="rounded-full h-12 px-8 border-[#1A1A1A] font-semibold" data-testid="hero-membership-btn">
+                  {t("hero.ctaMembership")}
                 </Button>
               </Link>
             </div>
             <div className="mt-12 flex items-center gap-8 text-sm text-[#4A4A4A]">
-              <div className="flex items-center gap-2"><Star size={18} weight="fill" className="text-[#E07A5F]" /> 4.9 · 12k reviews</div>
-              <div className="flex items-center gap-2"><ShieldCheck size={18} weight="duotone" /> Verified pros</div>
+              <div className="flex items-center gap-2"><Star size={18} weight="fill" className="text-[#E07A5F]" /> {t("hero.rating")}</div>
+              <div className="flex items-center gap-2"><ShieldCheck size={18} weight="duotone" /> {t("hero.verified")}</div>
             </div>
           </div>
 
@@ -54,10 +66,10 @@ export default function Home() {
       <section className="border-y border-[#EAE3D6] bg-white">
         <div className="max-w-7xl mx-auto px-6 lg:px-10 py-12 grid md:grid-cols-4 gap-8">
           {[
-            { icon: <HandHeart size={26} weight="duotone" />, t: "Trained Specialists", d: "Certified beauty therapists" },
-            { icon: <Leaf size={26} weight="duotone" />, t: "Clean Products", d: "Non-toxic, dermatologist-tested" },
-            { icon: <ShieldCheck size={26} weight="duotone" />, t: "Hygiene First", d: "Sealed & sanitised tools" },
-            { icon: <Clock size={26} weight="duotone" />, t: "On-time Arrival", d: "90-day slot precision" },
+            { icon: <HandHeart size={26} weight="duotone" />, t: t("values.trained"), d: t("values.trainedD") },
+            { icon: <Leaf size={26} weight="duotone" />, t: t("values.clean"), d: t("values.cleanD") },
+            { icon: <ShieldCheck size={26} weight="duotone" />, t: t("values.hygiene"), d: t("values.hygieneD") },
+            { icon: <Clock size={26} weight="duotone" />, t: t("values.onTime"), d: t("values.onTimeD") },
           ].map((v, i) => (
             <div key={i} className="flex items-start gap-4">
               <div className="text-[#E07A5F]">{v.icon}</div>
@@ -74,11 +86,11 @@ export default function Home() {
       <section className="max-w-7xl mx-auto px-6 lg:px-10 py-24">
         <div className="flex items-end justify-between mb-12">
           <div>
-            <div className="eyebrow mb-3">The Menu</div>
-            <h2 className="font-serif-luxe text-4xl sm:text-5xl tracking-tight">All your rituals, in one place.</h2>
+            <div className="eyebrow mb-3">{t("menu.eyebrow")}</div>
+            <h2 className="font-serif-luxe text-4xl sm:text-5xl tracking-tight">{t("menu.heading")}</h2>
           </div>
-          <Link to="/services" className="hidden sm:inline-flex items-center gap-2 text-sm text-[#1A1A1A] underline underline-offset-4" data-testid="view-all-services-link">
-            View all services <ArrowRight size={16} />
+          <Link to="/services" className="hidden sm:inline-flex items-center gap-2 text-sm text-[#1A1A1A] underline underline-offset-4 font-semibold" data-testid="view-all-services-link">
+            {t("menu.viewAll")} <ArrowRight size={16} />
           </Link>
         </div>
 
@@ -94,14 +106,14 @@ export default function Home() {
               `}
             >
               <div className={`relative ${idx === 0 ? "h-[440px]" : "h-[220px]"}`}>
-                <img src={s.image} alt={s.name} className="h-full w-full object-cover" />
+                <img src={s.image} alt={nm(s)} className="h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
                 <div className="absolute bottom-5 left-5 right-5 text-white">
-                  <div className="text-xs uppercase tracking-widest opacity-80">{s.category}</div>
-                  <div className="font-serif-luxe text-2xl mt-1">{s.name}</div>
+                  <div className="text-xs uppercase tracking-widest opacity-80 font-semibold">{cat(s)}</div>
+                  <div className="font-serif-luxe text-2xl mt-1">{nm(s)}</div>
                   <div className="mt-2 flex items-center justify-between">
-                    <span className="text-sm">from ${s.price}</span>
-                    <span className="text-sm underline underline-offset-4 opacity-90">Book</span>
+                    <span className="text-sm font-semibold">{t("common.from")} {formatINR(s.price)}</span>
+                    <span className="text-sm underline underline-offset-4 opacity-90">{t("common.bookNow")}</span>
                   </div>
                 </div>
               </div>
@@ -110,16 +122,19 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Testimonial showcase */}
+      <TestimonialShowcase reviews={reviews} />
+
       {/* Membership CTA */}
       <section className="max-w-7xl mx-auto px-6 lg:px-10 pb-24">
         <div className="rounded-3xl overflow-hidden relative bg-[#1A1A1A] text-[#F4EFE6] p-10 md:p-16">
           <div className="max-w-2xl">
-            <div className="eyebrow text-[#F4EFE6] opacity-70 mb-4">The DH Circle</div>
-            <h3 className="font-serif-luxe text-4xl sm:text-5xl">Save on every ritual, forever.</h3>
-            <p className="mt-4 text-[#DAD3C2] leading-relaxed">Join our members club and unlock up to 25% off, complimentary treatments, and priority stylists.</p>
+            <div className="eyebrow text-[#F4EFE6] opacity-70 mb-4">{t("membership.eyebrow")}</div>
+            <h3 className="font-serif-luxe text-4xl sm:text-5xl">{t("membership.heading")}</h3>
+            <p className="mt-4 text-[#DAD3C2] leading-relaxed">{t("membership.subtitle")}</p>
             <Link to="/memberships">
-              <Button className="mt-8 rounded-full h-12 px-8 bg-[#F4EFE6] text-[#1A1A1A] hover:bg-white" data-testid="cta-memberships-btn">
-                Explore memberships <ArrowRight size={18} className="ml-2" />
+              <Button className="mt-8 rounded-full h-12 px-8 bg-[#F4EFE6] text-[#1A1A1A] hover:bg-white font-semibold" data-testid="cta-memberships-btn">
+                {t("membership.cta")} <ArrowRight size={18} className="ml-2" />
               </Button>
             </Link>
           </div>

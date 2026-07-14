@@ -60,7 +60,7 @@ export default function Memberships() {
               )}
               <h2 className={`font-serif-luxe text-3xl mt-2 ${isPremium ? "text-[#F4EFE6]" : "text-[#1A1A1A]"}`}>{p.name}</h2>
               <div className="mt-4 flex items-baseline gap-2">
-                <span className={`font-serif-luxe text-5xl ${isPremium ? "text-[#F4EFE6]" : "text-[#1A1A1A]"}`}>${p.price}</span>
+                <span className={`font-serif-luxe text-5xl ${isPremium ? "text-[#F4EFE6]" : "text-[#1A1A1A]"}`}>₹{Number(p.price).toLocaleString("en-IN")}</span>
                 <span className={`text-sm ${isPremium ? "text-[#DAD3C2]" : "text-[#4A4A4A]"}`}>/ {p.duration_days} days</span>
               </div>
               <ul className="mt-8 space-y-3 text-sm">

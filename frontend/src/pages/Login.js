@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Sparkle, Quotes, Star, Eye, EyeSlash } from "@phosphor-icons/react";
+import { useTranslation } from "react-i18next";
 
 export default function Login() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
@@ -58,21 +60,21 @@ export default function Login() {
             <Sparkle size={26} weight="duotone" className="text-[#E07A5F]" />
             <span className="font-serif-luxe text-2xl">DH Salon</span>
           </Link>
-          <div className="eyebrow mb-3">Members</div>
-          <h1 className="font-serif-luxe text-5xl">Sign in.</h1>
-          <p className="text-sm text-[#4A4A4A] mt-3">Continue your beauty journey with us.</p>
+          <div className="eyebrow mb-3">{t("auth.signInEyebrow")}</div>
+          <h1 className="font-serif-luxe text-5xl">{t("auth.signInTitle")}</h1>
+          <p className="text-sm text-[#4A4A4A] mt-3">{t("auth.signInSub")}</p>
 
           <div className="mt-10 space-y-5">
             <div>
-              <Label className="text-xs tracking-widest uppercase text-[#4A4A4A]">Email</Label>
+              <Label className="text-xs tracking-widest uppercase text-[#4A4A4A] font-semibold">{t("common.email")}</Label>
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
                 className="mt-2 h-12 rounded-full bg-white border-[#EAE3D6] focus-visible:ring-[#E07A5F]"
                 placeholder="you@email.com" data-testid="login-email-input" />
             </div>
             <div>
               <div className="flex items-center justify-between">
-                <Label className="text-xs tracking-widest uppercase text-[#4A4A4A]">Password</Label>
-                <Link to="#" className="text-xs text-[#E07A5F]">Forgot?</Link>
+                <Label className="text-xs tracking-widest uppercase text-[#4A4A4A] font-semibold">{t("common.password")}</Label>
+                <Link to="#" className="text-xs text-[#E07A5F] font-semibold">{t("auth.forgot")}</Link>
               </div>
               <div className="relative">
                 <Input type={show ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required
@@ -86,17 +88,17 @@ export default function Login() {
             </div>
           </div>
 
-          <Button type="submit" disabled={loading} className="btn-primary-ink rounded-full h-12 w-full mt-8" data-testid="login-submit-btn">
-            {loading ? "Signing in..." : "Sign in"}
+          <Button type="submit" disabled={loading} className="btn-primary-ink rounded-full h-12 w-full mt-8 font-semibold" data-testid="login-submit-btn">
+            {loading ? "..." : t("common.signIn")}
           </Button>
 
           <p className="text-sm text-[#4A4A4A] mt-8 text-center">
-            New here? <Link to="/register" className="text-[#E07A5F] underline underline-offset-4" data-testid="link-register">Create an account</Link>
+            {t("auth.noAccount")} <Link to="/register" className="text-[#E07A5F] underline underline-offset-4 font-semibold" data-testid="link-register">{t("auth.createOne")}</Link>
           </p>
 
           <div className="mt-10 p-4 bg-[#F4EFE6] rounded-2xl text-xs text-[#4A4A4A] text-center">
-            Are you a beauty professional?{" "}
-            <Link to="/register-professional" className="text-[#1A1A1A] underline underline-offset-4 font-medium" data-testid="link-pro">Join our roster</Link>
+            {t("auth.proPromo")}{" "}
+            <Link to="/register-professional" className="text-[#1A1A1A] underline underline-offset-4 font-semibold" data-testid="link-pro">{t("common.joinRoster")}</Link>
           </div>
         </form>
       </div>

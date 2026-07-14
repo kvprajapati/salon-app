@@ -1,24 +1,32 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { CheckCircle, Handshake, ClockCounterClockwise, Coins } from "@phosphor-icons/react";
+import { useTranslation } from "react-i18next";
 
 const SPECIALIZATIONS = ["Facial", "Spa", "Waxing", "Hair Care", "Makeup", "Men's Grooming", "Nails", "Bridal"];
 
 export default function RegisterProfessional() {
+  const { t } = useTranslation();
+  const [categories, setCategories] = useState([]);
   const [form, setForm] = useState({
-    full_name: "", email: "", phone: "", city: "", gender: "female",
-    experience_years: 1, specializations: [], id_proof_type: "Passport",
+    full_name: "", email: "", phone: "", city: "", category: "", gender: "female",
+    experience_years: 1, specializations: [], id_proof_type: "Aadhaar",
     id_proof_number: "", portfolio_url: "", about: "",
   });
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    api.get("/professionals/categories").then(({ data }) => setCategories(data));
+  }, []);
 
   const toggleSpec = (s) => {
     setForm((f) => ({
@@ -33,6 +41,9 @@ export default function RegisterProfessional() {
     e.preventDefault();
     if (!form.full_name || !form.email || !form.phone || !form.city) {
       toast.error("Please fill required fields"); return;
+    }
+    if (!form.category) {
+      toast.error("Please select a professional category"); return;
     }
     if (form.specializations.length === 0) {
       toast.error("Select at least one specialization"); return;
@@ -51,10 +62,9 @@ export default function RegisterProfessional() {
     return (
       <div className="max-w-3xl mx-auto p-16 text-center">
         <CheckCircle size={72} weight="duotone" className="mx-auto text-[#8F9779]" />
-        <h1 className="font-serif-luxe text-5xl mt-6">Application received.</h1>
+        <h1 className="font-serif-luxe text-5xl mt-6">{t("pro.successTitle")}</h1>
         <p className="text-[#4A4A4A] mt-4 max-w-xl mx-auto">
-          Thanks for your interest in DH Salon. Our team reviews every application within 3 working days.
-          You'll hear from us at <b>{form.email}</b>.
+          {t("pro.successBody")} <b>{form.email}</b>.
         </p>
       </div>
     );
@@ -67,11 +77,9 @@ export default function RegisterProfessional() {
           <div className="lg:col-span-6">
             <div className="eyebrow mb-4">Join the roster</div>
             <h1 className="font-serif-luxe text-5xl lg:text-6xl leading-[1.05]">
-              Register as a <span className="italic text-[#E07A5F]">Professional</span>.
+              {t("pro.heading")}
             </h1>
-            <p className="text-[#4A4A4A] mt-6 max-w-lg leading-relaxed">
-              Join 5,000+ verified beauty professionals earning up to 3× more with flexible hours, dignified schedules and premium clients.
-            </p>
+            <p className="text-[#4A4A4A] mt-6 max-w-lg leading-relaxed">{t("pro.subheading")}</p>
             <div className="mt-8 grid grid-cols-3 gap-4 max-w-md">
               {[
                 { icon: <Coins size={22} weight="duotone" />, t: "Up to 3× income", d: "vs. traditional salons" },
@@ -80,7 +88,7 @@ export default function RegisterProfessional() {
               ].map((v, i) => (
                 <div key={i} className="text-[#E07A5F]">
                   {v.icon}
-                  <div className="text-sm font-serif-luxe text-[#1A1A1A] mt-2">{v.t}</div>
+                  <div className="text-sm font-semibold text-[#1A1A1A] mt-2">{v.t}</div>
                   <div className="text-xs text-[#4A4A4A]">{v.d}</div>
                 </div>
               ))}
@@ -94,8 +102,37 @@ export default function RegisterProfessional() {
       </section>
 
       <section className="max-w-4xl mx-auto px-6 lg:px-10 pb-24">
-        <form onSubmit={submit} className="p-8 bg-white border border-[#EAE3D6] rounded-3xl space-y-6" data-testid="pro-form">
+        <form onSubmit={submit} className="p-8 bg-white border border-[#EAE3D6] rounded-3xl space-y-8" data-testid="pro-form">
           <h2 className="font-serif-luxe text-3xl">Your application</h2>
+
+          {/* Professional category — mandatory radio */}
+          <div>
+            <Label className="text-sm font-semibold">{t("pro.category")} *</Label>
+            <p className="text-xs text-[#4A4A4A] mt-1">{t("pro.categoryHelp")}</p>
+            <RadioGroup
+              value={form.category}
+              onValueChange={(v) => setForm({ ...form, category: v })}
+              className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2"
+              data-testid="pro-category-radio"
+            >
+              {categories.map((c) => {
+                const id = `cat-${c.replace(/[^a-z0-9]/gi, "").toLowerCase()}`;
+                const active = form.category === c;
+                return (
+                  <label
+                    key={c}
+                    htmlFor={id}
+                    className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${active ? "border-[#1A1A1A] bg-[#F4EFE6]" : "border-[#EAE3D6] hover:border-[#1A1A1A]"}`}
+                    data-testid={`pro-category-${id}`}
+                  >
+                    <RadioGroupItem value={c} id={id} className="border-[#1A1A1A]" />
+                    <span className="text-sm font-semibold">{c}</span>
+                  </label>
+                );
+              })}
+            </RadioGroup>
+          </div>
+
           <div className="grid md:grid-cols-2 gap-4">
             <div><Label>Full name *</Label><Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} data-testid="pro-fullname-input" /></div>
             <div><Label>Email *</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} data-testid="pro-email-input" /></div>
@@ -121,10 +158,10 @@ export default function RegisterProfessional() {
               <Select value={form.id_proof_type} onValueChange={(v) => setForm({ ...form, id_proof_type: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Passport">Passport</SelectItem>
-                  <SelectItem value="Driving License">Driving License</SelectItem>
                   <SelectItem value="Aadhaar">Aadhaar</SelectItem>
-                  <SelectItem value="National ID">National ID</SelectItem>
+                  <SelectItem value="PAN">PAN</SelectItem>
+                  <SelectItem value="Driving License">Driving License</SelectItem>
+                  <SelectItem value="Passport">Passport</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -136,11 +173,11 @@ export default function RegisterProfessional() {
           </div>
 
           <div>
-            <Label>Specializations *</Label>
+            <Label>{t("pro.specializations")} *</Label>
             <div className="mt-3 flex flex-wrap gap-2" data-testid="pro-specializations">
               {SPECIALIZATIONS.map((s) => (
                 <button type="button" key={s} onClick={() => toggleSpec(s)}
-                  className={`px-4 py-2 rounded-full text-sm transition-colors border ${form.specializations.includes(s) ? "bg-[#1A1A1A] text-[#F4EFE6] border-[#1A1A1A]" : "bg-white border-[#EAE3D6] hover:border-[#1A1A1A]"}`}
+                  className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors border ${form.specializations.includes(s) ? "bg-[#1A1A1A] text-[#F4EFE6] border-[#1A1A1A]" : "bg-white border-[#EAE3D6] hover:border-[#1A1A1A]"}`}
                   data-testid={`pro-spec-${s.replace(/[^a-z]/gi, "").toLowerCase()}`}>
                   {s}
                 </button>
@@ -158,8 +195,8 @@ export default function RegisterProfessional() {
             <label htmlFor="agree" className="text-xs text-[#4A4A4A]">I agree to background verification and DH Salon's Code of Conduct.</label>
           </div>
 
-          <Button type="submit" disabled={loading} className="btn-primary-ink rounded-full h-12 px-10" data-testid="pro-submit-btn">
-            {loading ? "Submitting..." : "Submit application"}
+          <Button type="submit" disabled={loading} className="btn-primary-ink rounded-full h-12 px-10 font-semibold" data-testid="pro-submit-btn">
+            {loading ? "Submitting..." : t("pro.submit")}
           </Button>
         </form>
       </section>

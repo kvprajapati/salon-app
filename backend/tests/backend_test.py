@@ -102,6 +102,7 @@ def test_professional_register_and_admin_approval(admin_headers):
         "id_proof_type": "passport",
         "id_proof_number": "X1234567",
         "about": "Certified aesthetician",
+        "category": "Beautician",
     }
     # unauth create
     r = requests.post(f"{API}/professionals/register", json=payload)

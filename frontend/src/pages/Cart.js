@@ -56,7 +56,7 @@ export default function Cart() {
                 </div>
               </div>
               <div className="flex flex-col items-end justify-between">
-                <div className="font-serif-luxe text-xl">${(it.service.price * it.quantity).toFixed(2)}</div>
+                <div className="font-serif-luxe text-xl">₹{(it.service.price * it.quantity).toLocaleString("en-IN")}</div>
                 <button onClick={() => remove(it.service_id)} className="text-[#4A4A4A] hover:text-[#E07A5F]" data-testid={`remove-item-${it.service_id}`}>
                   <Trash size={18} />
                 </button>
@@ -69,13 +69,13 @@ export default function Cart() {
           <div className="p-6 bg-white border border-[#EAE3D6] rounded-2xl sticky top-28">
             <h3 className="font-serif-luxe text-2xl">Order summary</h3>
             <div className="mt-5 space-y-3 text-sm text-[#4A4A4A]">
-              <div className="flex justify-between"><span>Subtotal</span><span>${cart.total.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>Subtotal</span><span>₹{cart.total.toLocaleString("en-IN")}</span></div>
               <div className="flex justify-between"><span>Home visit</span><span>Free</span></div>
             </div>
             <div className="border-t border-[#EAE3D6] my-4"></div>
             <div className="flex justify-between font-serif-luxe text-2xl">
               <span>Total</span>
-              <span data-testid="cart-total">${cart.total.toFixed(2)}</span>
+              <span data-testid="cart-total">₹{cart.total.toLocaleString("en-IN")}</span>
             </div>
             <Button onClick={() => navigate("/checkout")} className="btn-primary-ink w-full mt-6 rounded-full h-12" data-testid="proceed-checkout-btn">
               Proceed to checkout

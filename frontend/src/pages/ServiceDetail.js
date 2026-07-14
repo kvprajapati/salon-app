@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { Star, Clock, ShieldCheck, Sparkle } from "@phosphor-icons/react";
 import { useAuth } from "@/context/AuthContext";
 import { Textarea } from "@/components/ui/textarea";
+import { useTranslation } from "react-i18next";
+import { formatINR } from "@/i18n";
 
 export default function ServiceDetail() {
   const { id } = useParams();
@@ -14,6 +16,8 @@ export default function ServiceDetail() {
   const [comment, setComment] = useState("");
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const hi = i18n.language?.startsWith("hi");
 
   const load = () => api.get(`/services/${id}`).then(({ data }) => setS(data));
   useEffect(() => { load(); }, [id]);
@@ -42,25 +46,25 @@ export default function ServiceDetail() {
           <img src={s.image} alt={s.name} className="w-full h-[540px] object-cover rounded-3xl" />
         </div>
         <div className="lg:col-span-5">
-          <div className="eyebrow mb-3">{s.category}</div>
-          <h1 className="font-serif-luxe text-5xl tracking-tight" data-testid="service-detail-name">{s.name}</h1>
+          <div className="eyebrow mb-3">{hi && s.category_hi ? s.category_hi : s.category}</div>
+          <h1 className="font-serif-luxe text-5xl tracking-tight" data-testid="service-detail-name">{hi && s.name_hi ? s.name_hi : s.name}</h1>
           <div className="mt-4 flex items-center gap-6 text-sm text-[#4A4A4A]">
             <div className="flex items-center gap-1"><Star size={16} weight="fill" className="text-[#E07A5F]" /> {s.rating || 4.6} · {s.review_count || 0} reviews</div>
-            <div className="flex items-center gap-1"><Clock size={16} weight="duotone" /> {s.duration_min} min</div>
+            <div className="flex items-center gap-1"><Clock size={16} weight="duotone" /> {s.duration_min} {t("common.minutes")}</div>
           </div>
-          <p className="mt-6 text-[#4A4A4A] leading-relaxed">{s.description}</p>
+          <p className="mt-6 text-[#4A4A4A] leading-relaxed">{hi && s.description_hi ? s.description_hi : s.description}</p>
 
           <div className="mt-8 p-6 rounded-2xl bg-white border border-[#EAE3D6]">
             <div className="flex items-baseline gap-3">
-              <span className="font-serif-luxe text-4xl">${s.price}</span>
-              <span className="text-sm text-[#4A4A4A]">/ session · at-home</span>
+              <span className="font-serif-luxe text-4xl">{formatINR(s.price)}</span>
+              <span className="text-sm text-[#4A4A4A]">{t("common.perSession")} · at-home</span>
             </div>
             <Button
-              className="btn-primary-ink rounded-full h-12 px-8 mt-6 w-full"
+              className="btn-primary-ink rounded-full h-12 px-8 mt-6 w-full font-semibold"
               onClick={addToCart}
               data-testid="add-to-cart-btn"
             >
-              Add to Bag
+              {t("common.addToBag")}
             </Button>
             <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-[#4A4A4A]">
               <div className="flex items-center gap-2"><ShieldCheck size={16} weight="duotone" /> Hygiene-first</div>

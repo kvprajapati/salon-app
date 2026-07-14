@@ -136,12 +136,12 @@ class CheckoutInput(BaseModel):
 
 # ============== Membership Plans (static config) ==============
 MEMBERSHIP_PLANS = {
-    "basic": {"id": "basic", "name": "Basic", "price": 999.0, "duration_days": 30,
+    "basic": {"id": "basic", "name": "Basic", "price": 499.0, "duration_days": 30, "currency": "INR",
               "perks": ["10% off all services", "1 free consultation", "Priority slots on weekdays"]},
-    "advanced": {"id": "advanced", "name": "Advanced", "price": 2499.0, "duration_days": 90,
+    "advanced": {"id": "advanced", "name": "Advanced", "price": 999.0, "duration_days": 90, "currency": "INR",
                  "perks": ["18% off all services", "2 complimentary facials", "Priority slots anytime",
                           "Free at-home service delivery"]},
-    "premium": {"id": "premium", "name": "Premium", "price": 5999.0, "duration_days": 180,
+    "premium": {"id": "premium", "name": "Premium", "price": 1999.0, "duration_days": 180, "currency": "INR",
                 "perks": ["25% off all services", "6 complimentary treatments",
                          "Dedicated beauty concierge", "Free at-home service delivery",
                          "Early access to new services", "Complimentary birthday spa day"]},
@@ -435,7 +435,7 @@ async def checkout(inp: CheckoutInput, request: Request, user=Depends(get_curren
     origin = inp.origin_url.rstrip("/")
     req = CheckoutSessionRequest(
         amount=amount,
-        currency="usd",
+        currency="inr",
         success_url=f"{origin}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{origin}/payment/cancel",
         metadata=meta,
@@ -445,7 +445,7 @@ async def checkout(inp: CheckoutInput, request: Request, user=Depends(get_curren
         "session_id": session.session_id,
         "user_id": user["id"],
         "amount": amount,
-        "currency": "usd",
+        "currency": "inr",
         "kind": inp.kind,
         "plan_id": inp.plan_id,
         "metadata": meta,
@@ -558,14 +558,14 @@ async def seed():
         return {"ok": True, "seeded": False}
 
     services = [
-        {"name": "Signature Facial", "category": "Facial", "description": "Deep-cleansing luxury facial with hydrating serums, extractions and a radiance-boosting mask.", "price": 89.0, "duration_min": 75, "image": "https://images.pexels.com/photos/12115040/pexels-photo-12115040.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940", "popular": True},
-        {"name": "Aromatherapy Spa", "category": "Spa", "description": "Full-body relaxation ritual using essential oils, warm stones and gentle Swedish techniques.", "price": 129.0, "duration_min": 90, "image": "https://images.unsplash.com/photo-1720118509152-2df877673bee?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDZ8MHwxfHNlYXJjaHwzfHxsdXh1cnklMjBzcGElMjBhZXN0aGV0aWN8ZW58MHx8fHwxNzg0MDE2MDgzfDA&ixlib=rb-4.1.0&q=85", "popular": True},
-        {"name": "Full-Body Waxing", "category": "Waxing", "description": "Gentle, low-pain wax treatment with premium botanical wax and post-care soothing lotion.", "price": 69.0, "duration_min": 60, "image": "https://images.unsplash.com/photo-1560750588-73207b1ef5b8?auto=format&fit=crop&w=940&q=80", "popular": False},
-        {"name": "Hair Style & Blowout", "category": "Hair Care", "description": "Salon-quality wash, style and blowout by senior stylists tailored to your face shape.", "price": 59.0, "duration_min": 60, "image": "https://images.unsplash.com/photo-1634449571010-02389ed0f9b0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzd8MHwxfHNlYXJjaHwxfHxzYWxvbiUyMGhhaXIlMjBzdHlsaW5nfGVufDB8fHx8MTc4NDAxNjA4M3ww&ixlib=rb-4.1.0&q=85", "popular": True},
-        {"name": "Bridal Makeup", "category": "Makeup", "description": "HD bridal makeup with false lashes, contouring and long-wear finish that photographs beautifully.", "price": 249.0, "duration_min": 120, "image": "https://images.unsplash.com/photo-1613966802194-d46a163af70d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzV8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBtYWtldXAlMjBhcnRpc3R8ZW58MHx8fHwxNzg0MDE2MDgzfDA&ixlib=rb-4.1.0&q=85", "popular": True},
-        {"name": "Men's Grooming Kit", "category": "Men's Grooming", "description": "Beard sculpt, hot-towel shave, hair styling and detox facial for the modern gentleman.", "price": 79.0, "duration_min": 75, "image": "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=940&q=80", "popular": False},
-        {"name": "Manicure & Pedicure", "category": "Salon at Home", "description": "Classic manicure and pedicure with gentle exfoliation, cuticle care and glossy finish.", "price": 49.0, "duration_min": 60, "image": "https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=940&q=80", "popular": False},
-        {"name": "Detan & Glow", "category": "Facial", "description": "De-tan treatment with vitamin-C infusion to restore even, luminous skin tone.", "price": 65.0, "duration_min": 60, "image": "https://images.unsplash.com/photo-1596178065887-1198b6148b2b?auto=format&fit=crop&w=940&q=80", "popular": False},
+        {"name": "Signature Facial", "name_hi": "सिग्नेचर फेशियल", "category": "Facial", "category_hi": "फेशियल", "description": "Deep-cleansing luxury facial with hydrating serums, extractions and a radiance-boosting mask.", "description_hi": "हाइड्रेटिंग सीरम, एक्सट्रैक्शन और चमक बढ़ाने वाले मास्क के साथ डीप-क्लींजिंग लक्ज़री फेशियल।", "price": 1899.0, "currency": "INR", "duration_min": 75, "image": "https://images.pexels.com/photos/12115040/pexels-photo-12115040.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940", "popular": True},
+        {"name": "Aromatherapy Spa", "name_hi": "एरोमाथेरेपी स्पा", "category": "Spa", "category_hi": "स्पा", "description": "Full-body relaxation ritual using essential oils, warm stones and gentle Swedish techniques.", "description_hi": "एसेंशियल ऑयल, गर्म पत्थरों और स्वीडिश तकनीक के साथ पूरे शरीर की रिलैक्सेशन थेरेपी।", "price": 2499.0, "currency": "INR", "duration_min": 90, "image": "https://images.unsplash.com/photo-1720118509152-2df877673bee?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDZ8MHwxfHNlYXJjaHwzfHxsdXh1cnklMjBzcGElMjBhZXN0aGV0aWN8ZW58MHx8fHwxNzg0MDE2MDgzfDA&ixlib=rb-4.1.0&q=85", "popular": True},
+        {"name": "Full-Body Waxing", "name_hi": "फुल-बॉडी वैक्सिंग", "category": "Waxing", "category_hi": "वैक्सिंग", "description": "Gentle, low-pain wax treatment with premium botanical wax and post-care soothing lotion.", "description_hi": "प्रीमियम बोटैनिकल वैक्स और सुखदायक लोशन के साथ कोमल, कम दर्द वाला वैक्स उपचार।", "price": 1299.0, "currency": "INR", "duration_min": 60, "image": "https://images.unsplash.com/photo-1560750588-73207b1ef5b8?auto=format&fit=crop&w=940&q=80", "popular": False},
+        {"name": "Hair Style & Blowout", "name_hi": "हेयर स्टाइल और ब्लोआउट", "category": "Hair Care", "category_hi": "हेयर केयर", "description": "Salon-quality wash, style and blowout by senior stylists tailored to your face shape.", "description_hi": "सीनियर स्टाइलिस्ट द्वारा आपके चेहरे के अनुरूप सैलून-गुणवत्ता वाला वॉश, स्टाइल और ब्लोआउट।", "price": 999.0, "currency": "INR", "duration_min": 60, "image": "https://images.unsplash.com/photo-1634449571010-02389ed0f9b0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzd8MHwxfHNlYXJjaHwxfHxzYWxvbiUyMGhhaXIlMjBzdHlsaW5nfGVufDB8fHx8MTc4NDAxNjA4M3ww&ixlib=rb-4.1.0&q=85", "popular": True},
+        {"name": "Bridal Makeup", "name_hi": "ब्राइडल मेकअप", "category": "Makeup", "category_hi": "मेकअप", "description": "HD bridal makeup with false lashes, contouring and long-wear finish that photographs beautifully.", "description_hi": "फॉल्स लैशेज़, कंटूरिंग और लंबे समय तक टिकने वाले फिनिश के साथ HD ब्राइडल मेकअप।", "price": 8999.0, "currency": "INR", "duration_min": 120, "image": "https://images.unsplash.com/photo-1613966802194-d46a163af70d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzV8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBtYWtldXAlMjBhcnRpc3R8ZW58MHx8fHwxNzg0MDE2MDgzfDA&ixlib=rb-4.1.0&q=85", "popular": True},
+        {"name": "Men's Grooming Kit", "name_hi": "मेन्स ग्रूमिंग किट", "category": "Men's Grooming", "category_hi": "पुरुष ग्रूमिंग", "description": "Beard sculpt, hot-towel shave, hair styling and detox facial for the modern gentleman.", "description_hi": "आधुनिक पुरुषों के लिए बीयर्ड स्कल्प्ट, हॉट-टॉवल शेव, हेयर स्टाइलिंग और डिटॉक्स फेशियल।", "price": 1499.0, "currency": "INR", "duration_min": 75, "image": "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=940&q=80", "popular": False},
+        {"name": "Manicure & Pedicure", "name_hi": "मेनीक्योर और पेडीक्योर", "category": "Salon at Home", "category_hi": "होम सैलून", "description": "Classic manicure and pedicure with gentle exfoliation, cuticle care and glossy finish.", "description_hi": "क्लासिक मेनीक्योर और पेडीक्योर, कोमल एक्सफोलिएशन, क्यूटिकल केयर और चमकदार फिनिश।", "price": 899.0, "currency": "INR", "duration_min": 60, "image": "https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=940&q=80", "popular": False},
+        {"name": "Detan & Glow", "name_hi": "डी-टैन और ग्लो", "category": "Facial", "category_hi": "फेशियल", "description": "De-tan treatment with vitamin-C infusion to restore even, luminous skin tone.", "description_hi": "समान, चमकदार त्वचा टोन बहाल करने के लिए विटामिन-C इन्फ्यूजन के साथ डी-टैन उपचार।", "price": 1199.0, "currency": "INR", "duration_min": 60, "image": "https://images.unsplash.com/photo-1596178065887-1198b6148b2b?auto=format&fit=crop&w=940&q=80", "popular": False},
     ]
     for s in services:
         s["id"] = str(uuid.uuid4())
@@ -602,6 +602,7 @@ class ProfessionalIn(BaseModel):
     email: EmailStr
     phone: str
     city: str
+    category: str  # Beautician / Hair Stylist / Makeup Artist / Spa Therapist / Nail Technician / Skin Care Specialist / Salon Owner / Massage Therapist / Bridal Makeup Expert / Other
     gender: Optional[str] = None
     experience_years: int = 0
     specializations: List[str] = []
@@ -611,8 +612,17 @@ class ProfessionalIn(BaseModel):
     about: Optional[str] = None
 
 
+VALID_PRO_CATEGORIES = {
+    "Beautician", "Hair Stylist", "Makeup Artist", "Spa Therapist",
+    "Nail Technician", "Skin Care Specialist", "Salon Owner",
+    "Massage Therapist", "Bridal Makeup Expert", "Other",
+}
+
+
 @api_router.post("/professionals/register")
 async def register_professional(inp: ProfessionalIn):
+    if inp.category not in VALID_PRO_CATEGORIES:
+        raise HTTPException(400, "Invalid professional category")
     existing = await db.professionals.find_one({"email": inp.email.lower()})
     if existing:
         raise HTTPException(400, "Application with this email already exists")
@@ -624,6 +634,11 @@ async def register_professional(inp: ProfessionalIn):
     await db.professionals.insert_one(doc)
     doc.pop("_id", None)
     return {"ok": True, "application_id": doc["id"]}
+
+
+@api_router.get("/professionals/categories")
+async def pro_categories():
+    return sorted(list(VALID_PRO_CATEGORIES))
 
 
 @api_router.get("/admin/professionals")
@@ -927,9 +942,13 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
 async def startup():
-    # auto-seed on first boot
+    # auto-seed on first boot; reseed if legacy USD services present
     try:
-        if await db.services.count_documents({}) == 0:
+        first = await db.services.find_one({}, {"_id": 0})
+        if first is None:
+            await seed()
+        elif first.get("currency") != "INR":
+            await db.services.delete_many({})
             await seed()
     except Exception as e:
         logger.exception("Seed on startup failed: %s", e)
