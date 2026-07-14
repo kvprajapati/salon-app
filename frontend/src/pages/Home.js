@@ -6,6 +6,7 @@ import { Star, ArrowRight, Leaf, Clock, ShieldCheck, HandHeart } from "@phosphor
 import { useTranslation } from "react-i18next";
 import { formatINR } from "@/i18n";
 import TestimonialShowcase from "@/components/TestimonialShowcase";
+import useSEO from "@/hooks/useSEO";
 
 export default function Home() {
   const [services, setServices] = useState([]);
@@ -14,6 +15,7 @@ export default function Home() {
   const hi = i18n.language?.startsWith("hi");
   const nm = (s) => (hi && s.name_hi ? s.name_hi : s.name);
   const cat = (s) => (hi && s.category_hi ? s.category_hi : s.category);
+  useSEO({ title: null, description: "Book premium salon, spa, facial, waxing and makeup at home in 40+ Indian cities. ₹499 memberships, verified specialists, on-time delivery.", path: "/" });
 
   useEffect(() => {
     api.get("/services").then(({ data }) => setServices(data.slice(0, 6)));

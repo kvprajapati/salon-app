@@ -16,6 +16,10 @@ from emergentintegrations.payments.stripe.checkout import (
     StripeCheckout, CheckoutSessionRequest, CheckoutSessionResponse, CheckoutStatusResponse,
 )
 from emergentintegrations.llm.chat import LlmChat, UserMessage
+from fastapi import File, UploadFile, Response
+import requests as pyrequests
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -358,6 +362,11 @@ async def create_booking(inp: BookingIn, user=Depends(get_current_user)):
     await db.bookings.insert_one(booking)
     await db.carts.update_one({"user_id": user["id"]}, {"$set": {"items": []}})
     booking.pop("_id", None)
+    # transactional notifications (SendGrid + MSG91) — no-op if not configured
+    try:
+        notify_booking(user, booking)
+    except Exception:
+        logger.exception("Booking notification failed (non-blocking)")
     return booking
 
 
@@ -394,6 +403,9 @@ async def add_review(inp: ReviewIn, user=Depends(get_current_user)):
 # ============== Memberships ==============
 @api_router.get("/memberships/plans")
 async def get_plans():
+    docs = await db.plans.find({"is_active": True}, {"_id": 0}).to_list(100)
+    if docs:
+        return docs
     return list(MEMBERSHIP_PLANS.values())
 
 
@@ -405,7 +417,7 @@ async def checkout(inp: CheckoutInput, request: Request, user=Depends(get_curren
     stripe_checkout = StripeCheckout(api_key=os.environ["STRIPE_API_KEY"], webhook_url=webhook_url)
 
     if inp.kind == "membership":
-        plan = MEMBERSHIP_PLANS.get(inp.plan_id or "")
+        plan = await _get_plan(inp.plan_id or "")
         if not plan:
             raise HTTPException(400, "Invalid plan")
         amount = float(plan["price"])
@@ -425,7 +437,7 @@ async def checkout(inp: CheckoutInput, request: Request, user=Depends(get_curren
         # discount if member
         membership = user.get("membership")
         if membership and membership.get("expires_at") and membership["expires_at"] > now_iso():
-            pct = {"basic": 10, "advanced": 18, "premium": 25}.get(membership["plan_id"], 0)
+            pct = await _plan_discount_pct(membership["plan_id"])
             total = total * (1 - pct / 100)
         amount = round(float(total), 2)
         if amount <= 0:
@@ -492,7 +504,7 @@ async def _mark_paid(session_id: str, record: dict):
     # side effects
     meta = record.get("metadata", {})
     if meta.get("kind") == "membership":
-        plan = MEMBERSHIP_PLANS.get(meta.get("plan_id", ""))
+        plan = await _get_plan(meta.get("plan_id", ""))
         if plan:
             expires = (datetime.now(timezone.utc) + timedelta(days=plan["duration_days"])).isoformat()
             await db.users.update_one(
@@ -746,6 +758,10 @@ async def cancel_booking(booking_id: str, user=Depends(get_current_user)):
             "refund_status": "processed" if refund_amount > 0 else "not_applicable",
         }},
     )
+    try:
+        notify_refund(user, b, refund_amount, pct)
+    except Exception:
+        logger.exception("Refund notification failed (non-blocking)")
     return {"ok": True, "refund_pct": pct, "refund_amount": refund_amount}
 
 
@@ -926,6 +942,404 @@ async def admin_prof_count(admin=Depends(require_admin)):
     return {"pending": pending}
 
 
+# ============== Notifications (SendGrid + MSG91) — env-gated ==============
+STORAGE_URL = "https://integrations.emergentagent.com/objstore/api/v1/storage"
+APP_STORAGE_PREFIX = "dh-salon"
+_storage_key = None
+
+
+def _sendgrid_ready():
+    return bool(os.environ.get("SENDGRID_API_KEY") and os.environ.get("SENDGRID_FROM_EMAIL"))
+
+
+def _msg91_ready(template_env: str):
+    return bool(os.environ.get("MSG91_AUTHKEY") and os.environ.get("MSG91_SENDER_ID") and os.environ.get(template_env))
+
+
+def send_email(to_email: str, subject: str, html: str, kind: str = "generic"):
+    """Send transactional email via SendGrid. No-op if env not configured."""
+    if not _sendgrid_ready() or not to_email:
+        logger.info(f"[email:{kind}] SKIPPED (sendgrid not configured) to={to_email}")
+        return {"skipped": True, "reason": "sendgrid_not_configured"}
+    try:
+        msg = Mail(
+            from_email=os.environ["SENDGRID_FROM_EMAIL"],
+            to_emails=to_email,
+            subject=subject,
+            html_content=html,
+        )
+        sg = SendGridAPIClient(os.environ["SENDGRID_API_KEY"])
+        resp = sg.send(msg)
+        return {"skipped": False, "status_code": resp.status_code}
+    except Exception as e:
+        logger.exception(f"[email:{kind}] failed")
+        return {"skipped": False, "error": str(e)}
+
+
+def send_sms(mobile: str, template_env: str, variables: dict, kind: str = "generic"):
+    """Send transactional SMS via MSG91 flow API. No-op if env not configured."""
+    if not _msg91_ready(template_env) or not mobile:
+        logger.info(f"[sms:{kind}] SKIPPED (msg91 not configured) mobile={mobile}")
+        return {"skipped": True, "reason": "msg91_not_configured"}
+    try:
+        payload = {
+            "flow_id": os.environ[template_env],
+            "sender": os.environ["MSG91_SENDER_ID"],
+            "route": "4",
+            "recipients": [{"mobiles": mobile, **variables}],
+        }
+        r = pyrequests.post(
+            "https://api.msg91.com/api/v5/flow/",
+            json=payload,
+            headers={"authkey": os.environ["MSG91_AUTHKEY"], "Content-Type": "application/json"},
+            timeout=15,
+        )
+        return {"skipped": False, "status_code": r.status_code}
+    except Exception as e:
+        logger.exception(f"[sms:{kind}] failed")
+        return {"skipped": False, "error": str(e)}
+
+
+def notify_booking(user: dict, booking: dict):
+    salon = "DH Salon"
+    booking_no = booking["id"][:8].upper()
+    items = ", ".join(i["name"] for i in booking.get("items", []))
+    total = booking.get("total", 0)
+    html = f"""
+    <div style="font-family:Inter,Arial,sans-serif;background:#FDFBF7;padding:24px;color:#1A1A1A">
+      <h2 style="font-family:'Cormorant Garamond',serif;color:#1A1A1A">Your booking is confirmed.</h2>
+      <p>Hi {user.get('name','')} — thank you for booking with {salon}.</p>
+      <p><b>Reference:</b> {booking_no}<br/>
+         <b>Services:</b> {items}<br/>
+         <b>Slot:</b> {booking.get('slot_date')} at {booking.get('slot_time')}<br/>
+         <b>Total:</b> ₹{total:,.0f}</p>
+      <p>Our specialist will arrive on time. Please prepare a well-lit spot.</p>
+      <p style="color:#4A4A4A;font-size:12px">Need help? Reply to this email or chat with Aria in the app.</p>
+    </div>"""
+    send_email(user.get("email"), f"Booking confirmed · {booking_no}", html, kind="booking")
+    send_sms(user.get("phone", ""), "MSG91_TPL_BOOKING",
+             {"booking_no": booking_no, "slot": f"{booking.get('slot_date')} {booking.get('slot_time')}"},
+             kind="booking")
+
+
+def notify_refund(user: dict, booking: dict, refund_amount: float, refund_pct: int):
+    booking_no = booking["id"][:8].upper()
+    html = f"""
+    <div style="font-family:Inter,Arial,sans-serif;background:#FDFBF7;padding:24px;color:#1A1A1A">
+      <h2 style="font-family:'Cormorant Garamond',serif">Refund processed.</h2>
+      <p>Hi {user.get('name','')} — your booking <b>{booking_no}</b> has been cancelled.</p>
+      <p><b>Refund:</b> ₹{refund_amount:,.0f} ({refund_pct}% as per policy)<br/>
+         Funds will reflect in your card in 5–7 business days.</p>
+    </div>"""
+    send_email(user.get("email"), f"Refund processed · {booking_no}", html, kind="refund")
+    send_sms(user.get("phone", ""), "MSG91_TPL_REFUND",
+             {"booking_no": booking_no, "amount": f"{refund_amount:,.0f}"}, kind="refund")
+
+
+def notify_renewal(user: dict, plan_id: str, days_left: int):
+    html = f"""
+    <div style="font-family:Inter,Arial,sans-serif;background:#FDFBF7;padding:24px;color:#1A1A1A">
+      <h2 style="font-family:'Cormorant Garamond',serif">Your membership expires in {days_left} days.</h2>
+      <p>Hi {user.get('name','')} — renew your <b>{plan_id.title()}</b> plan and keep your discounts, priority slots and complimentary treatments.</p>
+      <p><a href="{os.environ.get('APP_PUBLIC_URL','')}/memberships"
+            style="display:inline-block;background:#1A1A1A;color:#F4EFE6;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600">Renew now</a></p>
+    </div>"""
+    send_email(user.get("email"), f"Membership renewal reminder · {plan_id.title()}", html, kind="renewal")
+    send_sms(user.get("phone", ""), "MSG91_TPL_RENEWAL",
+             {"plan": plan_id, "days_left": str(days_left)}, kind="renewal")
+
+
+# ============== Object Storage (built-in) ==============
+def init_storage():
+    global _storage_key
+    if _storage_key:
+        return _storage_key
+    key = os.environ.get("EMERGENT_LLM_KEY")
+    if not key:
+        raise RuntimeError("EMERGENT_LLM_KEY missing")
+    resp = pyrequests.post(f"{STORAGE_URL}/init", json={"emergent_key": key}, timeout=30)
+    resp.raise_for_status()
+    _storage_key = resp.json()["storage_key"]
+    return _storage_key
+
+
+def put_object(path: str, data: bytes, content_type: str) -> dict:
+    sk = init_storage()
+    resp = pyrequests.put(
+        f"{STORAGE_URL}/objects/{path}",
+        headers={"X-Storage-Key": sk, "Content-Type": content_type},
+        data=data, timeout=60,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_object(path: str):
+    sk = init_storage()
+    resp = pyrequests.get(f"{STORAGE_URL}/objects/{path}",
+                         headers={"X-Storage-Key": sk}, timeout=30)
+    resp.raise_for_status()
+    return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+
+
+# ============== Dynamic Membership Plans (DB-backed) ==============
+async def _seed_plans_if_empty():
+    if await db.plans.count_documents({}) == 0:
+        for p in MEMBERSHIP_PLANS.values():
+            doc = {**p, "discount_pct": {"basic": 10, "advanced": 18, "premium": 25}.get(p["id"], 0),
+                   "created_at": now_iso(), "is_active": True}
+            await db.plans.insert_one(doc)
+
+
+async def _get_plan(plan_id: str):
+    p = await db.plans.find_one({"id": plan_id, "is_active": True}, {"_id": 0})
+    return p or MEMBERSHIP_PLANS.get(plan_id)
+
+
+async def _plan_discount_pct(plan_id: str) -> int:
+    p = await _get_plan(plan_id)
+    return int((p or {}).get("discount_pct", 0))
+
+
+class PlanIn(BaseModel):
+    id: Optional[str] = None
+    name: str
+    price: float
+    duration_days: int
+    discount_pct: int = 0
+    perks: List[str] = []
+    is_active: bool = True
+
+
+@api_router.post("/admin/plans")
+async def admin_create_plan(inp: PlanIn, admin=Depends(require_admin)):
+    plan_id = inp.id or inp.name.lower().replace(" ", "-")
+    doc = {**inp.model_dump(), "id": plan_id, "currency": "INR", "created_at": now_iso()}
+    await db.plans.update_one({"id": plan_id}, {"$set": doc}, upsert=True)
+    return {"ok": True, "id": plan_id}
+
+
+@api_router.delete("/admin/plans/{plan_id}")
+async def admin_delete_plan(plan_id: str, admin=Depends(require_admin)):
+    await db.plans.update_one({"id": plan_id}, {"$set": {"is_active": False}})
+    return {"ok": True}
+
+
+# ============== About Us CMS ==============
+DEFAULT_ABOUT = {
+    "id": "about",
+    "eyebrow": "Our story",
+    "headline": "A quieter, kinder kind of luxury.",
+    "subhead": "DH Salon began in 2022 as a whisper — the belief that beauty rituals should feel like slow evenings, not rushed appointments.",
+    "story": "Today we bring our specialists to 40+ neighbourhoods, carrying with them the calm of a boutique spa. Every service is co-designed with wellness architects and every product is dermatologist-tested.",
+    "hero_image": "https://images.pexels.com/photos/12115040/pexels-photo-12115040.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "values": [
+        {"title": "Curated rituals", "body": "Every service is co-designed with a wellness architect and refined every quarter."},
+        {"title": "Clean-first products", "body": "Only dermatologist-tested, cruelty-free brands touch our members' skin."},
+        {"title": "Cared-for specialists", "body": "Our team is trained, insured, salaried and shares in the company's success."},
+    ],
+    "stats": [
+        {"value": "200k+", "label": "Happy members"},
+        {"value": "40+", "label": "Cities served"},
+        {"value": "5,000+", "label": "Verified specialists"},
+        {"value": "4.9", "label": "Avg. rating"},
+    ],
+    "quote": "The best beauty experience I've had — and I've stopped visiting salons entirely.",
+    "quote_author": "Priya R., Premium member",
+    "updated_at": now_iso(),
+}
+
+
+class AboutIn(BaseModel):
+    eyebrow: str
+    headline: str
+    subhead: str
+    story: str
+    hero_image: str
+    values: List[dict]
+    stats: List[dict]
+    quote: str
+    quote_author: str
+
+
+@api_router.get("/cms/about")
+async def get_about():
+    doc = await db.cms.find_one({"id": "about"}, {"_id": 0})
+    return doc or DEFAULT_ABOUT
+
+
+@api_router.put("/admin/cms/about")
+async def update_about(inp: AboutIn, admin=Depends(require_admin)):
+    doc = {**inp.model_dump(), "id": "about", "updated_at": now_iso()}
+    await db.cms.update_one({"id": "about"}, {"$set": doc}, upsert=True)
+    return {"ok": True}
+
+
+# ============== Salon Settings (logo) ==============
+@api_router.get("/cms/settings")
+async def get_settings():
+    doc = await db.cms.find_one({"id": "settings"}, {"_id": 0})
+    return doc or {"id": "settings", "logo_url": None, "brand_name": "DH Salon", "tagline": "Beauty · Delivered"}
+
+
+class SettingsIn(BaseModel):
+    brand_name: Optional[str] = None
+    tagline: Optional[str] = None
+    logo_url: Optional[str] = None
+
+
+@api_router.put("/admin/cms/settings")
+async def update_settings(inp: SettingsIn, admin=Depends(require_admin)):
+    update = {k: v for k, v in inp.model_dump().items() if v is not None}
+    update["id"] = "settings"
+    update["updated_at"] = now_iso()
+    await db.cms.update_one({"id": "settings"}, {"$set": update}, upsert=True)
+    return {"ok": True}
+
+
+@api_router.post("/admin/upload/logo")
+async def upload_logo(file: UploadFile = File(...), admin=Depends(require_admin)):
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(400, "Only image files allowed")
+    ext = (file.filename.rsplit(".", 1)[-1] if "." in (file.filename or "") else "png").lower()
+    if ext not in {"png", "jpg", "jpeg", "webp", "svg"}:
+        ext = "png"
+    path = f"{APP_STORAGE_PREFIX}/logos/{uuid.uuid4()}.{ext}"
+    data = await file.read()
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(400, "Logo must be under 5 MB")
+    try:
+        result = put_object(path, data, file.content_type)
+    except Exception as e:
+        logger.exception("Storage upload failed")
+        raise HTTPException(500, f"Upload failed: {e}")
+    public_url = f"{os.environ.get('APP_PUBLIC_URL','').rstrip('/')}/api/files/{result['path']}"
+    await db.cms.update_one({"id": "settings"}, {"$set": {"logo_url": public_url, "logo_path": result["path"], "updated_at": now_iso()}}, upsert=True)
+    return {"logo_url": public_url, "path": result["path"]}
+
+
+@api_router.get("/files/{path:path}")
+async def serve_file(path: str):
+    try:
+        data, ct = get_object(path)
+    except Exception:
+        raise HTTPException(404, "Not found")
+    return Response(content=data, media_type=ct)
+
+
+# ============== Admin CRUD extras ==============
+@api_router.get("/admin/customers")
+async def admin_customers(admin=Depends(require_admin)):
+    docs = await db.users.find({"role": {"$ne": "admin"}}, {"_id": 0, "password": 0}).to_list(1000)
+    # add booking counts
+    for u in docs:
+        u["bookings_count"] = await db.bookings.count_documents({"user_id": u["id"]})
+    return docs
+
+
+@api_router.get("/admin/beauticians")
+async def admin_beauticians(status: Optional[str] = None, admin=Depends(require_admin)):
+    q = {"status": status} if status else {}
+    docs = await db.professionals.find(q, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return docs
+
+
+@api_router.get("/admin/reviews")
+async def admin_reviews(admin=Depends(require_admin)):
+    docs = await db.reviews.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    # attach service names
+    ids = list({r["service_id"] for r in docs})
+    services = await db.services.find({"id": {"$in": ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(1000)
+    smap = {s["id"]: s["name"] for s in services}
+    for r in docs:
+        r["service_name"] = smap.get(r["service_id"], "Unknown")
+    return docs
+
+
+class ReviewUpdate(BaseModel):
+    rating: Optional[int] = None
+    comment: Optional[str] = None
+
+
+@api_router.put("/admin/reviews/{review_id}")
+async def admin_update_review(review_id: str, inp: ReviewUpdate, admin=Depends(require_admin)):
+    update = {k: v for k, v in inp.model_dump().items() if v is not None}
+    if not update:
+        raise HTTPException(400, "No fields to update")
+    r = await db.reviews.update_one({"id": review_id}, {"$set": update})
+    if r.matched_count == 0:
+        raise HTTPException(404, "Review not found")
+    return {"ok": True}
+
+
+@api_router.delete("/admin/reviews/{review_id}")
+async def admin_delete_review(review_id: str, admin=Depends(require_admin)):
+    doc = await db.reviews.find_one({"id": review_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Not found")
+    await db.reviews.delete_one({"id": review_id})
+    # recompute service rating
+    revs = await db.reviews.find({"service_id": doc["service_id"]}, {"_id": 0}).to_list(1000)
+    if revs:
+        avg = sum(r["rating"] for r in revs) / len(revs)
+        await db.services.update_one({"id": doc["service_id"]}, {"$set": {"rating": round(avg, 1), "review_count": len(revs)}})
+    else:
+        await db.services.update_one({"id": doc["service_id"]}, {"$set": {"rating": 0, "review_count": 0}})
+    return {"ok": True}
+
+
+# ============== Renewal reminder cron endpoint (idempotent daily task) ==============
+@api_router.post("/tasks/send-renewal-reminders")
+async def send_renewal_reminders(admin=Depends(require_admin)):
+    """Admin-triggered idempotent job. Send to users whose membership expires in 7 days and haven't been reminded."""
+    now = datetime.now(timezone.utc)
+    users = await db.users.find({"membership.expires_at": {"$exists": True}}, {"_id": 0, "password": 0}).to_list(10000)
+    sent = 0
+    for u in users:
+        m = u.get("membership") or {}
+        exp = m.get("expires_at")
+        if not exp:
+            continue
+        try:
+            exp_dt = datetime.fromisoformat(exp)
+            if exp_dt.tzinfo is None:
+                exp_dt = exp_dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            continue
+        days_left = (exp_dt - now).days
+        if not (0 <= days_left <= 7):
+            continue
+        # dedupe by user+week
+        marker = f"renewal:{u['id']}:{exp_dt.date().isoformat()}"
+        if await db.notifications_sent.find_one({"id": marker}):
+            continue
+        notify_renewal(u, m.get("plan_id", "premium"), days_left)
+        await db.notifications_sent.insert_one({"id": marker, "user_id": u["id"], "kind": "renewal", "created_at": now_iso()})
+        sent += 1
+    return {"ok": True, "sent": sent}
+
+
+# ============== SEO: sitemap + robots ==============
+@api_router.get("/seo/sitemap.xml", include_in_schema=False)
+async def sitemap():
+    base = os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+    static_paths = [
+        "", "/services", "/memberships", "/reviews", "/about", "/faq",
+        "/careers", "/register-professional", "/login", "/register",
+    ]
+    urls = "".join(f"<url><loc>{base}{p}</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>" for p in static_paths)
+    services = await db.services.find({}, {"_id": 0, "id": 1}).to_list(1000)
+    urls += "".join(f"<url><loc>{base}/services/{s['id']}</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>" for s in services)
+    xml = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>'
+    return Response(content=xml, media_type="application/xml")
+
+
+@api_router.get("/seo/robots.txt", include_in_schema=False)
+async def robots():
+    base = os.environ.get("APP_PUBLIC_URL", "").rstrip("/")
+    return Response(content=f"User-agent: *\nAllow: /\nSitemap: {base}/api/seo/sitemap.xml\n", media_type="text/plain")
+
+
 app.include_router(api_router)
 
 app.add_middleware(
@@ -950,6 +1364,14 @@ async def startup():
         elif first.get("currency") != "INR":
             await db.services.delete_many({})
             await seed()
+        # seed dynamic plans
+        await _seed_plans_if_empty()
+        # init object storage (non-fatal)
+        try:
+            init_storage()
+            logger.info("Object storage initialized")
+        except Exception as e:
+            logger.warning(f"Object storage init failed (non-fatal): {e}")
     except Exception as e:
         logger.exception("Seed on startup failed: %s", e)
 

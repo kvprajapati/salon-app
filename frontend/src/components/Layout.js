@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useCms } from "@/context/CmsContext";
 import { Button } from "@/components/ui/button";
 import {
   ShoppingBag, User, SignOut, List, Sparkle, InstagramLogo, TiktokLogo, YoutubeLogo,
@@ -17,9 +18,14 @@ import {
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
+  const { settings } = useCms();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const brandName = settings?.brand_name || "DH Salon";
+  const tagline = settings?.tagline || t("common.tagline");
+  const logoUrl = settings?.logo_url;
 
   const nav = [
     { to: "/services", label: t("common.services") },
@@ -53,10 +59,14 @@ export default function Layout({ children }) {
       <header className="glass-nav sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 lg:px-10 h-20 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2" data-testid="brand-link">
-            <Sparkle size={30} weight="duotone" className="text-[#E07A5F]" />
+            {logoUrl ? (
+              <img src={logoUrl} alt={brandName} className="h-10 w-10 rounded-lg object-cover" />
+            ) : (
+              <Sparkle size={30} weight="duotone" className="text-[#E07A5F]" />
+            )}
             <div className="leading-none">
-              <div className="font-serif-luxe text-2xl tracking-tight">DH Salon</div>
-              <div className="text-[9px] uppercase tracking-[0.3em] text-[#4A4A4A]">{t("common.tagline")}</div>
+              <div className="font-serif-luxe text-2xl tracking-tight">{brandName}</div>
+              <div className="text-[9px] uppercase tracking-[0.3em] text-[#4A4A4A]">{tagline}</div>
             </div>
           </Link>
 
@@ -162,8 +172,12 @@ export default function Layout({ children }) {
         <div className="max-w-7xl mx-auto px-6 lg:px-10 py-16 grid md:grid-cols-5 gap-10">
           <div className="md:col-span-2">
             <div className="flex items-center gap-2 mb-3">
-              <Sparkle size={22} weight="duotone" className="text-[#E07A5F]" />
-              <span className="font-serif-luxe text-xl">DH Salon</span>
+              {logoUrl ? (
+                <img src={logoUrl} alt={brandName} className="h-8 w-8 rounded-md object-cover" />
+              ) : (
+                <Sparkle size={22} weight="duotone" className="text-[#E07A5F]" />
+              )}
+              <span className="font-serif-luxe text-xl">{brandName}</span>
             </div>
             <p className="text-sm text-[#4A4A4A] leading-relaxed max-w-sm">{t("footer.tagline")}</p>
 

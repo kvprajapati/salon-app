@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Check, Crown } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import useSEO from "@/hooks/useSEO";
 
 export default function Memberships() {
+  useSEO({ title: "Memberships · Basic ₹499 / Premium ₹1999", description: "Save up to 25% on every ritual with DH Salon memberships. Basic ₹499, Advanced ₹999, Premium ₹1,999 with priority slots and complimentary treatments.", path: "/memberships" });
   const [plans, setPlans] = useState([]);
   const { user } = useAuth();
   const [loadingPlan, setLoadingPlan] = useState(null);

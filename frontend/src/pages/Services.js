@@ -5,12 +5,14 @@ import { Star } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
 import { formatINR } from "@/i18n";
+import useSEO from "@/hooks/useSEO";
 
 export default function Services() {
   const [services, setServices] = useState([]);
   const [categories, setCategories] = useState([]);
   const [params, setParams] = useSearchParams();
   const category = params.get("category") || "";
+  useSEO({ title: category ? `${category} Services` : "All Services", description: "Book salon, spa, facial, waxing, hair and makeup services at home starting ₹899.", path: "/services" });
   const { t, i18n } = useTranslation();
   const hi = i18n.language?.startsWith("hi");
   const nm = (s) => (hi && s.name_hi ? s.name_hi : s.name);
