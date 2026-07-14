@@ -15,7 +15,7 @@ import { Crown, MapPin, Trash, Calendar as CalIcon, ArrowsClockwise, X, WarningC
 const SLOTS = ["09:00", "10:30", "12:00", "14:00", "15:30", "17:00", "18:30"];
 
 export default function Account() {
-  const { user, refresh } = useAuth();
+  const { user, loading, refresh } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [addresses, setAddresses] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
@@ -34,9 +34,10 @@ export default function Account() {
   };
 
   useEffect(() => {
+    if (loading) return;
     if (!user) { navigate("/login"); return; }
     load();
-  }, [user, navigate]);
+  }, [user, loading, navigate]);
 
   const saveAddress = async () => {
     if (!newAddr.line1 || !newAddr.city || !newAddr.pincode || !newAddr.phone) return toast.error("Fill all fields");
