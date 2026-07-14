@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration 2 test pass. 14/14 backend pytest cases passed (FAQ, Careers, Cancellation Policy, Professionals register+approval, Testimonials, Renewal status, Notify subscribe MOCKED, Admin roles/orders, Booking cancel with 100% refund, Booking reschedule, Chat Claude Sonnet 4.5 send+history + auth guard). Frontend flows verified: topbar Register-as-Professional link, /reviews, /faq (Booking/Cancellation categories rendered), /careers, /about, /register-professional (validation + submit -> Application received screen), Download-App modal with notify-me email (MOCKED subscribe), Chat widget: shows sign-in prompt when logged out, sends & receives reply from Claude when admin is logged in. Admin login redirects to /admin, dropdown menu (menu-account/menu-admin/menu-logout) works, admin 6 tabs render, approve/reject buttons present after seeded pro application, role dropdowns present, policy tab shows 100%. Customer booking cancel flow via UI works end-to-end: dialog shows policy, confirm triggers 100% refund toast, booking marked CANCELLED with refund breakdown persisted.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Account.js", "issue": "Race condition: on direct navigation to /account, useEffect checks !user without waiting for AuthContext loading state, causing brief redirect to /login before token restores. Works if navigating via header dropdown. Admin.js already handles this correctly with `if (loading) return`.", "selector": "src/pages/Account.js:36-39", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dialogs (Download-App, Chat, Cancel, Reschedule)", "issues": ["Radix DialogContent missing Description/aria-describedby — accessibility warnings in console (not blocking)"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Optional: Add `if (loading) return;` guard to Account.js useEffect (mirror Admin.js) to avoid brief /login redirect on hard-refresh of /account.",
+    "Optional: Add DialogDescription (or aria-describedby) to Dialog components to silence Radix a11y warnings."
+  ],
+  "critical_code_review_comments": [
+    "Chat replays prior history by calling llm.send_message for each prior user message in a loop — this doubles token cost and adds latency on every send. Better: pass history via LlmChat's built-in memory (session_id is already set) or store transcripts and construct a single context prompt.",
+    "server.py is 940 lines; consider splitting into routers (auth, services, cart, bookings, admin, chat, static-content) as it grows.",
+    "compute_refund_pct assumes UTC slot; user's timezone not considered — could produce unexpected refund tiers for near-boundary slots.",
+    "reschedule doesn't validate the new slot is in the future.",
+    "Frontend Account.js directly redirects to /login without waiting for auth loading — race condition mentioned above."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@dhsalon.com / Admin@123; test customer created dynamically (TEST_uicust_cb1243@example.com / Passw0rd!) used to verify UI cancel flow.",
+  "seed_data_creation": "Created 1 pro application (TEST_uipro_*), 1 notify subscriber, 1 customer with booking that was later cancelled — all prefixed TEST_.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All new iteration-2 endpoints & flows verified end-to-end. Race condition in Account.js is minor and doesn't block flows via header dropdown navigation. Chat uses Claude Sonnet 4.5 via EMERGENT_LLM_KEY successfully.",
+  "rca of the issue": "Account.js race: useEffect only depends on [user, navigate]; on hard-refresh AuthProvider first renders with user=null while token is being validated (or before /auth/me returns). Fix: import `loading` from useAuth and add `if (loading) return;` guard, mirroring Admin.js pattern."
+}

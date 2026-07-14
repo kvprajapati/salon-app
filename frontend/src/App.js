@@ -2,6 +2,7 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import Layout from "@/components/Layout";
+import ChatWidget from "@/components/ChatWidget";
 import Home from "@/pages/Home";
 import Services from "@/pages/Services";
 import ServiceDetail from "@/pages/ServiceDetail";
@@ -15,6 +16,10 @@ import PaymentSuccess from "@/pages/PaymentSuccess";
 import PaymentCancel from "@/pages/PaymentCancel";
 import Admin from "@/pages/Admin";
 import About from "@/pages/About";
+import FAQ from "@/pages/FAQ";
+import Careers from "@/pages/Careers";
+import Reviews from "@/pages/Reviews";
+import RegisterProfessional from "@/pages/RegisterProfessional";
 import { Toaster } from "sonner";
 
 function App() {
@@ -32,13 +37,18 @@ function App() {
               <Route path="/memberships" element={<Memberships />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/register-professional" element={<RegisterProfessional />} />
               <Route path="/account" element={<Account />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/about" element={<About />} />
+              <Route path="/faq" element={<FAQ />} />
+              <Route path="/careers" element={<Careers />} />
+              <Route path="/reviews" element={<Reviews />} />
               <Route path="/payment/success" element={<PaymentSuccess />} />
               <Route path="/payment/cancel" element={<PaymentCancel />} />
             </Routes>
           </Layout>
+          <ChatWidget />
           <Toaster position="top-center" richColors />
         </AuthProvider>
       </BrowserRouter>

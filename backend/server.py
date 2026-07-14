@@ -15,6 +15,7 @@ from datetime import datetime, timezone, timedelta
 from emergentintegrations.payments.stripe.checkout import (
     StripeCheckout, CheckoutSessionRequest, CheckoutSessionResponse, CheckoutStatusResponse,
 )
+from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -593,6 +594,321 @@ async def seed():
 @api_router.get("/")
 async def root():
     return {"message": "DH Salon API"}
+
+
+# ============== Professionals (Register-as-a-Professional) ==============
+class ProfessionalIn(BaseModel):
+    full_name: str
+    email: EmailStr
+    phone: str
+    city: str
+    gender: Optional[str] = None
+    experience_years: int = 0
+    specializations: List[str] = []
+    id_proof_type: Optional[str] = None
+    id_proof_number: Optional[str] = None
+    portfolio_url: Optional[str] = None
+    about: Optional[str] = None
+
+
+@api_router.post("/professionals/register")
+async def register_professional(inp: ProfessionalIn):
+    existing = await db.professionals.find_one({"email": inp.email.lower()})
+    if existing:
+        raise HTTPException(400, "Application with this email already exists")
+    doc = inp.model_dump()
+    doc["email"] = inp.email.lower()
+    doc["id"] = str(uuid.uuid4())
+    doc["status"] = "pending"  # pending / approved / rejected
+    doc["created_at"] = now_iso()
+    await db.professionals.insert_one(doc)
+    doc.pop("_id", None)
+    return {"ok": True, "application_id": doc["id"]}
+
+
+@api_router.get("/admin/professionals")
+async def list_professionals(admin=Depends(require_admin)):
+    docs = await db.professionals.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return docs
+
+
+@api_router.put("/admin/professionals/{pid}/status")
+async def update_professional_status(pid: str, status: str, admin=Depends(require_admin)):
+    if status not in ("approved", "rejected", "pending"):
+        raise HTTPException(400, "Invalid status")
+    await db.professionals.update_one({"id": pid}, {"$set": {"status": status, "reviewed_at": now_iso()}})
+    return {"ok": True}
+
+
+# ============== FAQ ==============
+FAQ_DATA = [
+    {"category": "Booking", "q": "How do I book a service?", "a": "Browse our menu, add a ritual to your bag, choose a date and slot in checkout, and confirm with secure Stripe payment."},
+    {"category": "Booking", "q": "Can I book multiple services at once?", "a": "Yes. Add every service you'd like to your bag — our specialists will perform them in one continuous session at your home."},
+    {"category": "Cancellation", "q": "What is your cancellation policy?", "a": "Free cancellation more than 12 hours before your slot. Cancel 4–12 hours before to receive a 50% refund. Less than 4 hours before the slot, refunds are unfortunately not possible."},
+    {"category": "Cancellation", "q": "How do I reschedule a booking?", "a": "Go to My Account → Bookings → Reschedule, and pick a new slot. Reschedules are free up to 4 hours before your appointment."},
+    {"category": "Memberships", "q": "How do membership discounts work?", "a": "Discounts (10% Basic, 18% Advanced, 25% Premium) are auto-applied at checkout while your membership is active."},
+    {"category": "Memberships", "q": "Will my membership auto-renew?", "a": "We send you a renewal reminder 7 days before your membership expires so you can choose to renew or upgrade — no silent charges."},
+    {"category": "Payments", "q": "Which payments do you accept?", "a": "All major cards via Stripe. Refunds are processed to the same card within 5–7 business days."},
+    {"category": "Payments", "q": "Is my payment secure?", "a": "Yes — payments are processed by Stripe. We never store your card details on our servers."},
+    {"category": "Services", "q": "Are your specialists trained and verified?", "a": "Every professional is certified, background-verified, and audited on skill + hygiene protocols every quarter."},
+    {"category": "Services", "q": "Do you carry your own tools and products?", "a": "Absolutely. Specialists arrive with sealed, sanitised tools and dermatologist-tested products."},
+]
+
+
+@api_router.get("/faq")
+async def get_faq():
+    return FAQ_DATA
+
+
+# ============== Careers ==============
+CAREERS_DATA = [
+    {"id": "sr-therapist", "title": "Senior Beauty Therapist", "location": "Multi-city (Remote-based)", "type": "Full-time", "description": "Lead at-home sessions with our most discerning members. 4+ years experience required."},
+    {"id": "concierge", "title": "Beauty Concierge (Chat)", "location": "Remote", "type": "Full-time", "description": "Craft delightful, human replies for our Premium members. Text-first, empathy-heavy."},
+    {"id": "ops-lead", "title": "City Operations Lead", "location": "New York / London / Dubai", "type": "Full-time", "description": "Run the day-to-day of a metro market — specialists, slots, quality."},
+    {"id": "designer", "title": "Product Designer", "location": "Remote", "type": "Full-time", "description": "Design our web + upcoming iOS/Android app with a sensitivity to quiet luxury."},
+]
+
+
+@api_router.get("/careers")
+async def get_careers():
+    return CAREERS_DATA
+
+
+# ============== Cancellation Policy ==============
+CANCEL_POLICY = {
+    "rules": [
+        {"threshold_hours": 12, "refund_pct": 100, "label": "More than 12 hours before slot"},
+        {"threshold_hours": 4, "refund_pct": 50, "label": "4 to 12 hours before slot"},
+        {"threshold_hours": 0, "refund_pct": 0, "label": "Less than 4 hours before slot"},
+    ],
+    "summary": "Free cancel > 12h · 50% refund 4–12h · No refund < 4h",
+}
+
+
+@api_router.get("/policy/cancellation")
+async def cancellation_policy():
+    return CANCEL_POLICY
+
+
+def compute_refund_pct(slot_dt_iso: str) -> int:
+    try:
+        # slot_date is ISO date, slot_time is HH:MM
+        dt = datetime.fromisoformat(slot_dt_iso)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        return 0
+    hours_left = (dt - datetime.now(timezone.utc)).total_seconds() / 3600.0
+    if hours_left >= 12:
+        return 100
+    if hours_left >= 4:
+        return 50
+    return 0
+
+
+class RescheduleIn(BaseModel):
+    slot_date: str
+    slot_time: str
+
+
+@api_router.post("/bookings/{booking_id}/cancel")
+async def cancel_booking(booking_id: str, user=Depends(get_current_user)):
+    b = await db.bookings.find_one({"id": booking_id, "user_id": user["id"]}, {"_id": 0})
+    if not b:
+        raise HTTPException(404, "Booking not found")
+    if b["status"] in ("cancelled", "completed"):
+        raise HTTPException(400, f"Booking already {b['status']}")
+    slot_dt = f"{b['slot_date']}T{b['slot_time']}:00+00:00"
+    pct = compute_refund_pct(slot_dt)
+    refund_amount = round(b["total"] * pct / 100, 2)
+    await db.bookings.update_one(
+        {"id": booking_id},
+        {"$set": {
+            "status": "cancelled",
+            "cancelled_at": now_iso(),
+            "refund_pct": pct,
+            "refund_amount": refund_amount,
+            "refund_status": "processed" if refund_amount > 0 else "not_applicable",
+        }},
+    )
+    return {"ok": True, "refund_pct": pct, "refund_amount": refund_amount}
+
+
+@api_router.post("/bookings/{booking_id}/reschedule")
+async def reschedule_booking(booking_id: str, inp: RescheduleIn, user=Depends(get_current_user)):
+    b = await db.bookings.find_one({"id": booking_id, "user_id": user["id"]}, {"_id": 0})
+    if not b:
+        raise HTTPException(404, "Booking not found")
+    if b["status"] in ("cancelled", "completed"):
+        raise HTTPException(400, f"Booking already {b['status']}")
+    slot_dt = f"{b['slot_date']}T{b['slot_time']}:00+00:00"
+    hours_left = (datetime.fromisoformat(slot_dt) - datetime.now(timezone.utc)).total_seconds() / 3600.0
+    if hours_left < 4:
+        raise HTTPException(400, "Reschedule not allowed within 4 hours of the slot")
+    await db.bookings.update_one(
+        {"id": booking_id},
+        {"$set": {"slot_date": inp.slot_date, "slot_time": inp.slot_time, "rescheduled_at": now_iso()}},
+    )
+    return {"ok": True}
+
+
+# ============== Testimonials (public reviews wall) ==============
+@api_router.get("/testimonials")
+async def testimonials():
+    # Pull top reviews across services
+    docs = await db.reviews.find({"rating": {"$gte": 4}}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return docs
+
+
+# ============== Membership Renewal Reminder ==============
+@api_router.get("/memberships/renewal-status")
+async def renewal_status(user=Depends(get_current_user)):
+    m = user.get("membership")
+    if not m or not m.get("expires_at"):
+        return {"active": False}
+    expires = datetime.fromisoformat(m["expires_at"])
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    days_left = (expires - datetime.now(timezone.utc)).days
+    return {
+        "active": days_left >= 0,
+        "plan_id": m["plan_id"],
+        "expires_at": m["expires_at"],
+        "days_left": days_left,
+        "needs_renewal_prompt": 0 <= days_left <= 7,
+    }
+
+
+# ============== AI Chat Support (Claude Sonnet 4.5) ==============
+CHAT_SYSTEM_PROMPT = """You are Aria, the DH Salon customer support concierge — a warm, calm, professional voice for a luxury at-home salon service.
+
+BRAND VOICE
+- Warm, gentle, elegant. Never salesy. Never use emojis.
+- Speak like a boutique-hotel concierge.
+- Keep replies short (2-4 sentences) unless the question needs detail.
+
+WHAT DH SALON OFFERS
+- At-home salon, spa, facial, waxing, hair-care, makeup and men's grooming services.
+- 3 memberships: Basic ($999 / 30 days, 10% off), Advanced ($2,499 / 90 days, 18% off), Premium ($5,999 / 180 days, 25% off).
+- Cancellation policy: free > 12h before slot, 50% refund 4–12h, no refund < 4h.
+- Reschedule: allowed up to 4 hours before the appointment.
+- Payments via Stripe; refunds to same card in 5–7 business days.
+- Auto-renewal: reminder email 7 days before membership expiry; no silent charges.
+
+WHEN TO ESCALATE
+- If a customer needs a manual refund override, a specialist complaint, or something out-of-policy, tell them you'll escalate to a human concierge and to email hello@dhsalon.com or call +1 (555) 123 8899.
+
+Always answer politely. Never invent policies. If you don't know, escalate."""
+
+
+class ChatIn(BaseModel):
+    message: str
+    session_id: Optional[str] = None
+
+
+@api_router.post("/chat/send")
+async def chat_send(inp: ChatIn, user=Depends(get_current_user)):
+    session_id = inp.session_id or str(uuid.uuid4())
+
+    # Load prior turns for this session
+    prior = await db.chat_messages.find(
+        {"user_id": user["id"], "session_id": session_id},
+        {"_id": 0},
+    ).sort("created_at", 1).to_list(50)
+
+    llm = LlmChat(
+        api_key=os.environ["EMERGENT_LLM_KEY"],
+        session_id=f"{user['id']}::{session_id}",
+        system_message=CHAT_SYSTEM_PROMPT,
+    ).with_model("anthropic", "claude-sonnet-4-5-20250929")
+
+    # Feed prior context (send_message is used for simple non-streaming flow)
+    for m in prior:
+        if m["role"] == "user":
+            try:
+                await llm.send_message(UserMessage(text=m["content"]))
+            except Exception:
+                pass
+
+    # Save user message
+    now = now_iso()
+    await db.chat_messages.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": user["id"],
+        "session_id": session_id,
+        "role": "user",
+        "content": inp.message,
+        "created_at": now,
+    })
+
+    try:
+        answer = await llm.send_message(UserMessage(text=inp.message))
+    except Exception as e:
+        logging.exception("LLM error")
+        raise HTTPException(500, "Support assistant is temporarily unavailable")
+
+    await db.chat_messages.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": user["id"],
+        "session_id": session_id,
+        "role": "assistant",
+        "content": answer,
+        "created_at": now_iso(),
+    })
+
+    return {"session_id": session_id, "reply": answer}
+
+
+@api_router.get("/chat/history")
+async def chat_history(session_id: Optional[str] = None, user=Depends(get_current_user)):
+    q = {"user_id": user["id"]}
+    if session_id:
+        q["session_id"] = session_id
+    docs = await db.chat_messages.find(q, {"_id": 0}).sort("created_at", 1).to_list(500)
+    return docs
+
+
+# ============== Notify (mock email/push waitlist) ==============
+class NotifyIn(BaseModel):
+    email: EmailStr
+    channel: str = "app_launch"
+
+
+@api_router.post("/notify/subscribe")
+async def notify_subscribe(inp: NotifyIn):
+    # MOCKED: no real email/SMS provider connected — we only store the record.
+    await db.notify_list.insert_one({
+        "id": str(uuid.uuid4()),
+        "email": inp.email.lower(),
+        "channel": inp.channel,
+        "created_at": now_iso(),
+    })
+    return {"ok": True, "mock": True, "message": "You're on the list — we'll email you when we launch."}
+
+
+# ============== Admin: roles + orders ==============
+class RoleIn(BaseModel):
+    role: str  # admin | customer | staff
+
+
+@api_router.put("/admin/users/{user_id}/role")
+async def admin_set_role(user_id: str, inp: RoleIn, admin=Depends(require_admin)):
+    if inp.role not in ("admin", "customer", "staff"):
+        raise HTTPException(400, "Invalid role")
+    await db.users.update_one({"id": user_id}, {"$set": {"role": inp.role}})
+    return {"ok": True}
+
+
+@api_router.get("/admin/orders")
+async def admin_orders(admin=Depends(require_admin)):
+    docs = await db.payment_transactions.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return docs
+
+
+@api_router.get("/admin/professionals-count")
+async def admin_prof_count(admin=Depends(require_admin)):
+    pending = await db.professionals.count_documents({"status": "pending"})
+    return {"pending": pending}
 
 
 app.include_router(api_router)
