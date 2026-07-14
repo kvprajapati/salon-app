@@ -1,0 +1,144 @@
+{
+  "theme": "Light",
+  "archetype": "Organic & Earthy fused with Soft Luxury",
+  "typography": {
+    "headings": {
+      "family": "'Cormorant Garamond', serif",
+      "weights": ["300", "400", "600"],
+      "usage": "H1, H2, H3 for Hero, Section Titles, and Service Names. Avoid 'Inter' or generic sans. Use tracking-tight for luxury feel."
+    },
+    "body": {
+      "family": "'Manrope', sans-serif",
+      "weights": ["400", "500"],
+      "usage": "Clean sans-serif for body text, descriptions, reviews, forms, and admin dashboard."
+    },
+    "scale": {
+      "H1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-none",
+      "H2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight",
+      "H3": "text-xl sm:text-2xl",
+      "Body": "text-base leading-relaxed text-charcoal-700",
+      "Labels": "text-xs tracking-[0.2em] uppercase text-terracotta-600"
+    }
+  },
+  "colors": {
+    "primary": "#D6A390",
+    "primary_hover": "#C28F7C",
+    "background_base": "#FDFBF7",
+    "background_surface": "#FFFFFF",
+    "text_main": "#1A1A1A",
+    "text_muted": "#4A4A4A",
+    "accents": {
+      "terracotta": "#E07A5F",
+      "sage": "#8F9779",
+      "champagne": "#F4EFE6"
+    },
+    "admin_dashboard": {
+      "primary": "#1A1A1A",
+      "background": "#F4F4F5",
+      "surface": "#FFFFFF"
+    },
+    "rules": [
+      "CRITICAL: Do NOT use default SaaS Blue or Teal Green.",
+      "CRITICAL: No pure #000000. Use tinted deep charcoal (#1A1A1A).",
+      "CRITICAL: Use high contrast for text. Ensure APCA/WCAG AA compliance."
+    ]
+  },
+  "visual_enhancers": {
+    "surfaces": [
+      "Crystal Glassmorphism for Sticky Navbars: backdrop-blur-xl bg-white/70 border-b border-white/40 shadow-sm.",
+      "Neumorphism/Soft Lift for Service Cards: flat background #FFFFFF, subtle 1px border-champagne, shadow-sm on rest, -translate-y-1 + shadow-lg on hover.",
+      "Editorial Overlays: bg-black/30 or gradient to transparent over hero images. NO heavy flat blankets."
+    ],
+    "textures": [
+      "Subtle grain/noise overlay on hero sections to kill digital flatness and enhance premium feel."
+    ]
+  },
+  "layouts": {
+    "navigation": "Sticky/fixed glassmorphic header (z-50). Logo + 4 links + 'Book Now' CTA. NO transparent backgrounds under text. Must be clearly readable. Never hide behind hamburger on desktop.",
+    "hero": "Editorial split layout or immersive full-bleed with generous padding. H1 on left, evocative imagery on right.",
+    "service_catalog": "One-Glance Bento Grid (md:grid-cols-8 lg:grid-cols-12 gap-8). Mix tall cards for popular services, wide cards for categories. Avoid generic equal square grids.",
+    "service_detail": "Close-up immersive image top/left, clear pricing, duration, 'Add to Cart' CTA on right. Lots of negative space (p-8 to p-12).",
+    "cart_checkout": "Minimalist, frictionless. White solid backgrounds, standard Shadcn form components customized with brand colors.",
+    "membership_plans": "3-column grid. Basic (subtle, soft beige), Advanced (highlighted, white with primary border), Premium (dark charcoal card with champagne text to scream luxury).",
+    "admin_dashboard": "High-density Grid (md:grid-cols-3 lg:grid-cols-4 gap-4). Cardless or 1px subtle border widgets. Functional, clear hierarchy."
+  },
+  "grids": {
+    "bento_grid_protocol": "Use wide gaps (gap-8 to gap-12) for marketing/catalog. Asymmetry creates tension. Col-span-full md:col-span-8 row-span-2 for hero service.",
+    "admin_grid_protocol": "Tight gaps (gap-4 or gap-6). Use h-full on children to stretch."
+  },
+  "motion": {
+    "hover_states": "All buttons/cards need subtle translate-y and shadow/color shift. EXPLICITLY set text color on hover (hover:text-white).",
+    "transitions": "Use specific properties (transition: transform 0.2s ease, opacity 0.2s ease). DO NOT USE 'transition: all'.",
+    "page_load": "Staggered fade-up for service catalog items."
+  },
+  "components_usage": {
+    "marketing_sections": "Pure HTML/Tailwind CSS using raw div/section/span for asymmetry and breathing room.",
+    "interactive_logic": "Shadcn components heavily customized (Input, Select, Form, Dialog, Tabs). Strip default Vercel-look. Use Shadcn Calendar for date/time slots. Use Sonner for toasts.",
+    "customization": "Apply generous padding (p-6, p-8) to Shadcn cards. Change tablist h-9 to h-auto.",
+    "icons": "Use @phosphor-icons/react for Duotone, elegant luxury feel in the app."
+  },
+  "accessibility": {
+    "data_testid": "CRITICAL: ALL interactive elements (buttons, links, inputs, dialogs, form submits, user balances) MUST have data-testid attributes (e.g., data-testid='book-service-button').",
+    "contrast": "Text below 18px minimum 4.5:1 ratio. No gray-on-gray.",
+    "motion": "Respect prefers-reduced-motion."
+  },
+  "image_urls": [
+    {
+      "url": "https://images.pexels.com/photos/12115040/pexels-photo-12115040.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Woman receiving a facial treatment at spa (High resolution)",
+      "category": "Service Catalog - Facial / Spa at Home",
+      "placement": "Service detail page or Bento grid hero cell"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1634449571010-02389ed0f9b0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzd8MHwxfHNlYXJjaHwxfHxzYWxvbiUyMGhhaXIlMjBzdHlsaW5nfGVufDB8fHx8MTc4NDAxNjA4M3ww&ixlib=rb-4.1.0&q=85",
+      "description": "Woman getting her hair styled",
+      "category": "Service Catalog - Hair Care",
+      "placement": "Category card"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1720118509152-2df877673bee?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDZ8MHwxfHNlYXJjaHwzfHxsdXh1cnklMjBzcGElMjBhZXN0aGV0aWN8ZW58MHx8fHwxNzg0MDE2MDgzfDA&ixlib=rb-4.1.0&q=85",
+      "description": "Bath tub with candles and wine glass - Luxury aesthetic",
+      "category": "Hero Section / Brand Mood",
+      "placement": "Marketing landing page hero or background imagery"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1613966802194-d46a163af70d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzV8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBtYWtldXAlMjBhcnRpc3R8ZW58MHx8fHwxNzg0MDE2MDgzfDA&ixlib=rb-4.1.0&q=85",
+      "description": "Professional makeup artist at work",
+      "category": "Service Catalog - Makeup",
+      "placement": "Category card"
+    }
+  ],
+  "libraries": {
+    "animations": "framer-motion",
+    "scrolling": "lenis (smooth momentum scrolling for marketing pages)",
+    "icons": "@phosphor-icons/react",
+    "toasts": "sonner",
+    "charts": "recharts (for admin dashboard bookings/revenue)",
+    "ui": "shadcn/ui"
+  },
+  "instructions_to_main_agent": {
+    "1": "Do not center align `.App` container. Use optical alignment.",
+    "2": "Create `.js` components and files, NOT `.tsx` since this is a JS environment. Omit typescript specific typings.",
+    "3": "Use Shadcn calendar for time slot picker and Shadcn dialog for cart/checkout modals.",
+    "4": "The 'One-glance' layout means using a Bento Grid or Masonry for services rather than standard vertical lists.",
+    "5": "Use the specified image URLs. Do NOT use placeholder text or via.placeholder.com.",
+    "6": "Incorporate data-testid for all interactables.",
+    "7": "Do not use Inter font for headings. Setup 'Cormorant Garamond' from Google Fonts in index.css.",
+    "8": "Design 'Premium' membership plan card uniquely to stand out (e.g., dark charcoal bg with champagne/gold text) to boost conversions.",
+    "9": "Never place transparent nav over hero. Always use backdrop-blur-xl + bg-white/70.",
+    "10": "Ensure the layout displays service catalog categories (Salon at Home, Spa, Waxing, Facial, Hair Care, Makeup, Men's Grooming) in a unified, easy-to-scan view."
+  },
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "You tend to converge toward generic outputs. Break the 'AI slop' aesthetic. Create depth with z-index hierarchy and glassmorphism.",
+    "Do NOT apply universal transitions (e.g. `transition: all`). Target specific properties.",
+    "Do NOT add `.App { text-align: center; }`.",
+    "Every interaction needs micro-animations - hover states, translations.",
+    "Use 2-3x more spacing than feels comfortable (p-8, p-12).",
+    "Subtle grain textures, custom cursors separate good from extraordinary.",
+    "Use sonner for toasts, located in /app/src/components/ui/sonner.js",
+    "Prioritize using pre-existing components from src/components/ui.",
+    "No AI assistant Emojis like 🤖🧠💭💡🔮🎯. Use @phosphor-icons/react.",
+    "DO NOT use complete `transparent` background in header, overlays, any surface that has content under it. Example: Dropdown with transparent background.",
+    "ALL interactive and key informational elements MUST include a `data-testid` attribute to facilitate robust automated testing."
+  ]
+}
